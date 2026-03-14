@@ -55,3 +55,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Do not ignore these JS files
+!generate_proposal.js
