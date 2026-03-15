@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "artprotocol.db")
+DB_PATH = os.getenv("DB_PATH", os.path.join(os.path.dirname(__file__), "artprotocol.db"))
 
 
 def get_db() -> sqlite3.Connection:
