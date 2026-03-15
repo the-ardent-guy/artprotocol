@@ -47,11 +47,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ─── CREDIT COSTS PER DEPARTMENT ─────────────────────────────────────────────
 CREW_COSTS = {
-    "research":  120,
-    "branding":  350,
-    "social":    350,
-    "ads":       400,
-    "proposal":  180,
+    "research":  20,
+    "branding":  20,
+    "social":    20,
+    "ads":       20,
+    "proposal":  20,
 }
 
 # ─── CREDIT PACKAGES ─────────────────────────────────────────────────────────
