@@ -1,33 +1,21 @@
 /**
  * API client for Art Protocol OS backend.
- * All calls go through Next.js rewrites (/api/backend/*) in dev,
- * or directly to NEXT_PUBLIC_API_URL in production server components.
+ * All calls go through the Next.js proxy at /api/backend/*
+ * which injects the BACKEND_API_KEY server-side.
+ * Client components never need or send an API key directly.
  */
 
 import { Client, OutputFile, KnowledgeFile, AnyBrief, JobStatus } from "./types";
 
-const API_KEY = process.env.BACKEND_API_KEY || process.env.NEXT_PUBLIC_API_KEY || "";
+const BASE = "/api/backend";
 
-function getBaseUrl() {
-  // In browser: use relative path (goes through Next.js rewrite)
-  if (typeof window !== "undefined") return "/api/backend";
-  // In server: call directly
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-}
-
-async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {},
-  apiKey?: string
-): Promise<T> {
-  const url = `${getBaseUrl()}${path}`;
-  const key = apiKey || API_KEY;
+async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const url = `${BASE}${path}`;
 
   const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": key,
       ...(options.headers || {}),
     },
   });
@@ -42,87 +30,73 @@ async function apiFetch<T>(
 
 // ─── CLIENTS ──────────────────────────────────────────────────────────────────
 
-export async function getClients(apiKey?: string): Promise<Client[]> {
-  return apiFetch<Client[]>("/clients", {}, apiKey);
+export async function getClients(): Promise<Client[]> {
+  return apiFetch<Client[]>("/clients");
 }
 
 export async function createClient(
   name: string,
-  brief: string,
-  apiKey?: string
+  brief: string
 ): Promise<{ name: string; path: string }> {
   return apiFetch("/clients", {
     method: "POST",
     body: JSON.stringify({ name, brief }),
-  }, apiKey);
+  });
 }
 
-export async function getBrief(
-  clientName: string,
-  apiKey?: string
-): Promise<{ content: string }> {
-  return apiFetch(`/client/${clientName}/brief`, {}, apiKey);
+export async function getBrief(clientName: string): Promise<{ content: string }> {
+  return apiFetch(`/client/${clientName}/brief`);
 }
 
 export async function saveBrief(
   clientName: string,
-  content: string,
-  apiKey?: string
+  content: string
 ): Promise<{ saved: boolean }> {
   return apiFetch(`/client/${clientName}/brief`, {
     method: "POST",
     body: JSON.stringify({ content }),
-  }, apiKey);
+  });
 }
 
-export async function getOutputs(
-  clientName: string,
-  apiKey?: string
-): Promise<OutputFile[]> {
-  return apiFetch<OutputFile[]>(`/client/${clientName}/outputs`, {}, apiKey);
+export async function getOutputs(clientName: string): Promise<OutputFile[]> {
+  return apiFetch<OutputFile[]>(`/client/${clientName}/outputs`);
 }
 
 export async function getClientCredentials(
-  clientName: string,
-  apiKey?: string
+  clientName: string
 ): Promise<{ username: string; password: string }> {
-  return apiFetch(`/client/${clientName}/credentials`, {}, apiKey);
+  return apiFetch(`/client/${clientName}/credentials`);
 }
 
 export async function setClientCredentials(
   clientName: string,
   username: string,
-  password: string,
-  apiKey?: string
+  password: string
 ): Promise<{ saved: boolean }> {
   return apiFetch(`/client/${clientName}/credentials`, {
     method: "POST",
     body: JSON.stringify({ username, password }),
-  }, apiKey);
+  });
 }
 
 // ─── OUTPUTS ─────────────────────────────────────────────────────────────────
 
-export async function getOutput(
-  path: string,
-  apiKey?: string
-): Promise<{ content: string; path: string }> {
-  return apiFetch(`/output/${path}`, {}, apiKey);
+export async function getOutput(path: string): Promise<{ content: string; path: string }> {
+  return apiFetch(`/output/${path}`);
 }
 
 export async function saveOutputVersion(
   path: string,
-  content: string,
-  apiKey?: string
+  content: string
 ): Promise<{ saved: boolean; version: number; path: string }> {
   return apiFetch(`/output/${path}/save`, {
     method: "POST",
     body: JSON.stringify({ content }),
-  }, apiKey);
+  });
 }
 
 export function getPdfUrl(path: string): string {
-  return `${getBaseUrl()}/output/${path}/pdf`;
+  return `${BASE}/output/${path}/pdf`;
 }
 
 // ─── CREW RUNNER ─────────────────────────────────────────────────────────────
@@ -131,8 +105,7 @@ export async function runCrew(
   clientName: string,
   crewName: string,
   brief: AnyBrief,
-  brandDocPath?: string,
-  apiKey?: string
+  brandDocPath?: string
 ): Promise<{ job_id: string }> {
   return apiFetch("/run-crew", {
     method: "POST",
@@ -142,55 +115,46 @@ export async function runCrew(
       brief,
       brand_doc_path: brandDocPath,
     }),
-  }, apiKey);
+  });
 }
 
-export async function getJobStatus(
-  jobId: string,
-  apiKey?: string
-): Promise<JobStatus> {
-  return apiFetch(`/job/${jobId}`, {}, apiKey);
+export async function getJobStatus(jobId: string): Promise<JobStatus> {
+  return apiFetch(`/job/${jobId}`);
 }
 
-// SSE stream URL (used directly in browser)
-export function getStreamUrl(jobId: string, apiKey: string): string {
-  return `/api/backend/stream/${jobId}?x-api-key=${encodeURIComponent(apiKey)}`;
+// SSE stream URL — proxy handles auth via server-side BACKEND_API_KEY
+export function getStreamUrl(jobId: string): string {
+  return `/api/backend/stream/${jobId}`;
 }
 
 // ─── KNOWLEDGE BASE ───────────────────────────────────────────────────────────
 
-export async function getKnowledge(apiKey?: string): Promise<KnowledgeFile[]> {
-  return apiFetch<KnowledgeFile[]>("/knowledge", {}, apiKey);
+export async function getKnowledge(): Promise<KnowledgeFile[]> {
+  return apiFetch<KnowledgeFile[]>("/knowledge");
 }
 
 export async function uploadKnowledge(
   file: File,
-  tags: string,
-  apiKey?: string
+  tags: string
 ): Promise<{ uploaded: string }> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("tags", tags);
 
-  const url = `${getBaseUrl()}/knowledge/upload`;
-  const res = await fetch(url, {
+  const res = await fetch(`${BASE}/knowledge/upload`, {
     method: "POST",
-    headers: { "x-api-key": apiKey || API_KEY },
     body: formData,
   });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
   return res.json();
 }
 
-export async function deleteKnowledge(
-  filename: string,
-  apiKey?: string
-): Promise<{ deleted: string }> {
-  return apiFetch(`/knowledge/${filename}`, { method: "DELETE" }, apiKey);
+export async function deleteKnowledge(filename: string): Promise<{ deleted: string }> {
+  return apiFetch(`/knowledge/${filename}`, { method: "DELETE" });
 }
 
 // ─── CHAT ─────────────────────────────────────────────────────────────────────
 
 export function getChatStreamUrl(): string {
-  return `${getBaseUrl()}/chat`;
+  return `${BASE}/chat`;
 }

@@ -22,8 +22,6 @@ const CREWS: { id: CrewName; label: string; desc: string }[] = [
 export default function ClientPage() {
   const { name }   = useParams<{ name: string }>();
   const router     = useRouter();
-  const apiKey     = process.env.NEXT_PUBLIC_API_KEY || "";
-
   // Brief state
   const [briefMd,      setBriefMd]      = useState("");
   const [briefSaving,  setBriefSaving]  = useState(false);
@@ -59,7 +57,7 @@ export default function ClientPage() {
   async function loadBrief() {
     setBriefLoading(true);
     try {
-      const data = await getBrief(name, apiKey);
+      const data = await getBrief(name);
       setBriefMd(data.content);
     } catch {}
     setBriefLoading(false);
@@ -68,7 +66,7 @@ export default function ClientPage() {
   async function handleSaveBrief() {
     setBriefSaving(true);
     try {
-      await saveBrief(name, briefMd, apiKey);
+      await saveBrief(name, briefMd);
       setBriefSaved(true);
       setTimeout(() => setBriefSaved(false), 2000);
     } catch (e: any) {
@@ -80,7 +78,7 @@ export default function ClientPage() {
   async function loadOutputs() {
     setLoadingOutputs(true);
     try {
-      const data = await getOutputs(name, apiKey);
+      const data = await getOutputs(name);
       setOutputs(data);
     } catch {}
     setLoadingOutputs(false);
@@ -114,7 +112,7 @@ export default function ClientPage() {
       const brandOutput = outputs.find((o) => o.crew === "branding");
       const brandDocPath = brandOutput?.path;
 
-      const data = await runCrew(name, crew, fields, brandDocPath, apiKey);
+      const data = await runCrew(name, crew, fields, brandDocPath);
       setJobId(data.job_id);
       startStreaming(data.job_id);
     } catch (e: any) {
@@ -125,7 +123,7 @@ export default function ClientPage() {
 
   function startStreaming(jid: string) {
     if (eventSourceRef.current) eventSourceRef.current.close();
-    const url = `/api/backend/stream/${jid}?api_key=${encodeURIComponent(apiKey)}`;
+    const url = `/api/backend/stream/${jid}`;
     const es  = new EventSource(url);
     eventSourceRef.current = es;
 
@@ -325,7 +323,7 @@ export default function ClientPage() {
                     key={output.path}
                     output={output}
                     clientName={name}
-                    apiKey={apiKey}
+
                   />
                 ))}
               </div>

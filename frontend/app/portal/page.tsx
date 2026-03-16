@@ -13,8 +13,6 @@ export default function PortalPage() {
   const [outputs,  setOutputs]  = useState<OutputFile[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState("");
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || "";
-
   useEffect(() => {
     if (status === "unauthenticated") router.replace("/login");
     if (status === "authenticated" && session?.user?.role === "admin") {
@@ -31,7 +29,7 @@ export default function PortalPage() {
   async function loadOutputs(clientName: string) {
     setLoading(true);
     try {
-      const data = await getOutputs(clientName, apiKey);
+      const data = await getOutputs(clientName);
       setOutputs(data);
     } catch (e: any) {
       setError(e.message);
@@ -105,7 +103,6 @@ export default function PortalPage() {
                 key={output.path}
                 output={output}
                 clientName={clientName}
-                apiKey={apiKey}
               />
             ))}
           </div>

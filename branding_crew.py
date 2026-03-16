@@ -342,7 +342,11 @@ TASK_NAMES = [
 ]
 
 def get_branding_folder(safe_name):
-    folder = safe_name + "_Branding"
+    base = os.getenv("AP_CLIENT_BASE", "")
+    if base:
+        folder = os.path.join(base, safe_name + "_Branding")
+    else:
+        folder = safe_name + "_Branding"
     os.makedirs(folder, exist_ok=True)
     return folder
 

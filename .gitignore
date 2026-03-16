@@ -48,6 +48,7 @@ backend/*.db
 
 # IDE / OS
 .claude/
+.openclaw/
 .vscode/
 .idea/
 Thumbs.db

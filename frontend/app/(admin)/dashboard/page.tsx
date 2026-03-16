@@ -15,8 +15,6 @@ export default function DashboardPage() {
   const [creating,    setCreating]    = useState(false);
   const [error,       setError]       = useState("");
 
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || "";
-
   useEffect(() => {
     loadClients();
   }, []);
@@ -24,7 +22,7 @@ export default function DashboardPage() {
   async function loadClients() {
     setLoading(true);
     try {
-      const data = await getClients(apiKey);
+      const data = await getClients();
       setClients(data);
     } catch (e: any) {
       setError(e.message);
@@ -39,7 +37,7 @@ export default function DashboardPage() {
     setCreating(true);
     setError("");
     try {
-      await createClient(newName.trim(), newBrief, apiKey);
+      await createClient(newName.trim(), newBrief);
       setNewName("");
       setNewBrief("");
       setShowCreate(false);
@@ -156,6 +154,12 @@ export default function DashboardPage() {
           {clients.map((client) => (
             <ClientCard key={client.name} client={client} />
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+     ))}
         </div>
       )}
     </div>

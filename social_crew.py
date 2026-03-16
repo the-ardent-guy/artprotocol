@@ -34,7 +34,11 @@ search_tool = SerperDevTool()
 
 def get_social_folder(brand_name):
     safe_name = brand_name.replace(" ", "_")
-    folder = safe_name + "_Social"
+    base = os.getenv("AP_CLIENT_BASE", "")
+    if base:
+        folder = os.path.join(base, safe_name + "_Social")
+    else:
+        folder = safe_name + "_Social"
     os.makedirs(folder, exist_ok=True)
     return folder
 

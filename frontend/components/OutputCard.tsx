@@ -8,7 +8,6 @@ import clsx from "clsx";
 interface Props {
   output:     OutputFile;
   clientName: string;
-  apiKey:     string;
 }
 
 const CREW_COLORS: Record<string, string> = {
@@ -35,7 +34,7 @@ function formatDate(iso: string) {
   });
 }
 
-export default function OutputCard({ output, clientName, apiKey }: Props) {
+export default function OutputCard({ output, clientName }: Props) {
   const crewColor = CREW_COLORS[output.crew] || CREW_COLORS.output;
   const pdfUrl    = getPdfUrl(output.path);
 
@@ -78,7 +77,7 @@ export default function OutputCard({ output, clientName, apiKey }: Props) {
             onClick={(e) => {
               // Inject API key header via fetch + blob URL for download
               e.preventDefault();
-              fetch(pdfUrl, { headers: { "x-api-key": apiKey } })
+              fetch(pdfUrl)
                 .then((r) => r.blob())
                 .then((blob) => {
                   const url = URL.createObjectURL(blob);

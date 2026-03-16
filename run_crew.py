@@ -26,6 +26,13 @@ try:
 except ImportError:
     pass
 
+# Memory stack
+from memory_stack import (
+    init_memory, save_memory, load_memory,
+    extract_research_memory, extract_branding_memory,
+    build_context_injection
+)
+
 
 def save_to_client_folder(client_name, crew_name, content):
     """Save output to the client's folder and return the path."""
@@ -266,32 +273,38 @@ def run_research_headless(client_name, brief):
     from research import run as run_research
     import builtins
 
-    query    = brief.get("query", brief.get("brand_name", client_name))
-    name     = brief.get("brand_name", query)
-    what     = brief.get("what_it_is", brief.get("query", ""))
-    category = brief.get("category", "")
-    audience = brief.get("target_audience", "")
-    notes    = brief.get("notes", "")
+    # Map all 8 brief fields from the conversational intake
+    name            = brief.get("brand_name", client_name)
+    what            = brief.get("what_it_is", brief.get("query", ""))
+    category        = brief.get("category", "")
+    location        = brief.get("location", "")
+    customer        = brief.get("customer", "")
+    problem_solved  = brief.get("problem_solved", brief.get("notes", ""))
+    competitors     = brief.get("competitors", "")
+    stage           = brief.get("stage", "new")
+
+    print(f"  Brand:       {name}", flush=True)
+    print(f"  Category:    {category}", flush=True)
+    print(f"  Location:    {location}", flush=True)
+    print(f"  Stage:       {stage}", flush=True)
+    print(f"  Competitors: {competitors or 'not provided — will research'}", flush=True)
 
     # research.py's get_client_brief() asks exactly 12 questions via input(),
-    # then load_checkpoint() may ask one more. Provide all answers in order.
-    competitors = brief.get("competitors", "")
-    stage       = brief.get("stage", "new")
-
+    # then load_checkpoint() may ask one more. Map all fields in order.
     answers = iter([
-        name,                          # 1. Brand name
-        what or query,                 # 2. What is it exactly
-        category,                      # 3. Category
-        "",                            # 4. Subcategory / niche
-        "",                            # 5. Primary location
-        audience,                      # 6. Target geography
-        audience,                      # 7. Who is the customer
-        notes[:200] if notes else "",  # 8. What problem does this solve
-        competitors,                   # 9. Three competitors
-        "",                            # 10. What does the founder believe
-        stage or "new",                # 11. Stage
-        "",                            # 12. What would this brand never do
-        "n",                           # checkpoint: Resume from checkpoint? (y/n)
+        name,                                    # 1. Brand name
+        what,                                    # 2. What is it exactly
+        category,                                # 3. Category
+        "",                                      # 4. Subcategory / niche (not collected)
+        location,                                # 5. Primary location
+        location,                                # 6. Target geography (use location as default)
+        customer,                                # 7. Who is the customer
+        problem_solved[:600] if problem_solved else "",  # 8. What problem does this solve
+        competitors,                             # 9. Three competitors
+        "",                                      # 10. Founder belief (not collected)
+        stage or "new",                          # 11. Stage
+        "",                                      # 12. What brand would never do (not collected)
+        "n",                                     # checkpoint: Resume? (always fresh)
     ])
     original_input = builtins.input
 
@@ -372,16 +385,69 @@ def main():
 
     os.makedirs(f"clients/{args.client}", exist_ok=True)
 
+    # Set AP_CLIENT_BASE so crew files save intermediate outputs
+    # inside clients/<client>/ instead of workspace root
+    os.environ["AP_CLIENT_BASE"] = os.path.join(ROOT, "clients", args.client)
+
+    # Init memory with brief
+    init_memory(args.client, brief)
+
+    # Build memory context for this crew
+    memory_context = build_context_injection(args.client, args.crew)
+    if memory_context:
+        print(f"\n[MEMORY] Injecting project memory ({len(memory_context)} chars)", flush=True)
+        # Inject into brief notes so crew prompts can use it
+        brief["memory_context"] = memory_context
+
+    # If no brand_document passed but memory has prior output, auto-load it
+    if not brand_document and args.crew in ("social", "ads", "branding"):
+        client_dir = os.path.join(ROOT, "clients", args.client)
+        # Try research output first, then branding
+        for prefix in ("research_", "brand_document_"):
+            import glob
+            matches = sorted(
+                glob.glob(os.path.join(client_dir, f"{prefix}*.txt")),
+                key=os.path.getmtime, reverse=True
+            )
+            if matches:
+                with open(matches[0], "r", encoding="utf-8") as f:
+                    brand_document = f.read()
+                print(f"[MEMORY] Auto-loaded context: {os.path.basename(matches[0])}", flush=True)
+                break
+
+    result = None
     if args.crew == "branding":
-        run_branding_headless(args.client, brief)
+        result = run_branding_headless(args.client, brief)
     elif args.crew == "social":
-        run_social_headless(args.client, brief, brand_document)
+        result = run_social_headless(args.client, brief, brand_document)
     elif args.crew == "ads":
-        run_ads_headless(args.client, brief, brand_document)
+        result = run_ads_headless(args.client, brief, brand_document)
     elif args.crew == "proposal":
-        run_proposal_headless(args.client, brief)
+        result = run_proposal_headless(args.client, brief)
     elif args.crew == "research":
-        run_research_headless(args.client, brief)
+        result = run_research_headless(args.client, brief)
+
+    # Update memory after run completes
+    if result:
+        memory = load_memory(args.client)
+        runs = memory.get("runs_completed", [])
+        if args.crew not in runs:
+            runs.append(args.crew)
+        memory["runs_completed"] = runs
+
+        result_str = str(result)
+        if args.crew == "research":
+            research_facts = extract_research_memory(result_str, brief)
+            if research_facts:
+                memory["research"] = research_facts
+                print("[MEMORY] Research facts extracted and saved", flush=True)
+        elif args.crew == "branding":
+            branding_facts = extract_branding_memory(result_str)
+            if branding_facts:
+                memory["branding"] = branding_facts
+                print("[MEMORY] Brand identity facts extracted and saved", flush=True)
+
+        save_memory(args.client, memory)
 
 
 if __name__ == "__main__":

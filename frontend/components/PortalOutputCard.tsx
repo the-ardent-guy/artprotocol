@@ -9,7 +9,6 @@ import clsx from "clsx";
 interface Props {
   output:     OutputFile;
   clientName: string;
-  apiKey:     string;
 }
 
 const CREW_COLORS: Record<string, string> = {
@@ -33,7 +32,7 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 }
 
-export default function PortalOutputCard({ output, clientName, apiKey }: Props) {
+export default function PortalOutputCard({ output, clientName }: Props) {
   const [expanded,    setExpanded]    = useState(false);
   const [content,     setContent]     = useState("");
   const [loadingView, setLoadingView] = useState(false);
@@ -43,7 +42,7 @@ export default function PortalOutputCard({ output, clientName, apiKey }: Props) 
     if (!expanded && !content) {
       setLoadingView(true);
       try {
-        const data = await getOutput(output.path, apiKey);
+        const data = await getOutput(output.path);
         setContent(data.content);
       } catch (e: any) {
         setContent(`[Error: ${e.message}]`);
@@ -55,7 +54,7 @@ export default function PortalOutputCard({ output, clientName, apiKey }: Props) 
 
   function downloadPdf() {
     const pdfUrl = getPdfUrl(output.path);
-    fetch(pdfUrl, { headers: { "x-api-key": apiKey } })
+    fetch(pdfUrl)
       .then((r) => r.blob())
       .then((blob) => {
         const url = URL.createObjectURL(blob);
@@ -104,5 +103,8 @@ export default function PortalOutputCard({ output, clientName, apiKey }: Props) 
         </div>
       )}
     </div>
+  );
+}
+div>
   );
 }

@@ -5,10 +5,9 @@ import { ChatMessage } from "@/lib/types";
 
 interface Props {
   context: string;
-  apiKey:  string;
 }
 
-export default function ChatPanel({ context, apiKey }: Props) {
+export default function ChatPanel({ context }: Props) {
   const [messages,  setMessages]  = useState<ChatMessage[]>([]);
   const [input,     setInput]     = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -38,7 +37,6 @@ export default function ChatPanel({ context, apiKey }: Props) {
         method:  "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-api-key":    apiKey,
         },
         body: JSON.stringify({
           message: msg,

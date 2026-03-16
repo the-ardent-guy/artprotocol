@@ -203,55 +203,207 @@ def generate_pdf(content: str, title: str = "Output") -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, PageBreak
     from reportlab.lib import colors
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.pdfgen import canvas as pdfcanvas
+
+    PAGE_W, PAGE_H = A4
+    MARGIN = 20 * mm
+
+    # ── Watermark callback ────────────────────────────────────────────────────
+    def add_watermark(canv, doc):
+        """Draws a subtle Art Protocol watermark at the bottom of every page."""
+        canv.saveState()
+        canv.setFont("Helvetica", 7)
+        canv.setFillColor(colors.HexColor("#cccccc"))
+        watermark_text = "Art Protocol Studio"
+        text_width = canv.stringWidth(watermark_text, "Helvetica", 7)
+        x = (PAGE_W - text_width) / 2
+        y = 10 * mm
+        canv.drawString(x, y, watermark_text)
+        # Page number on right
+        canv.setFillColor(colors.HexColor("#cccccc"))
+        canv.drawRightString(PAGE_W - MARGIN, y, f"p. {doc.page}")
+        canv.restoreState()
 
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
         buffer,
         pagesize=A4,
-        rightMargin=20*mm,
-        leftMargin=20*mm,
-        topMargin=20*mm,
-        bottomMargin=20*mm,
+        rightMargin=MARGIN,
+        leftMargin=MARGIN,
+        topMargin=MARGIN,
+        bottomMargin=25 * mm,   # extra bottom space for watermark
+        onFirstPage=add_watermark,
+        onLaterPages=add_watermark,
     )
+
     styles = getSampleStyleSheet()
 
-    # Custom styles
-    h1 = ParagraphStyle("h1", parent=styles["Heading1"], fontSize=18, spaceAfter=8, textColor=colors.HexColor("#1a1a1a"))
-    h2 = ParagraphStyle("h2", parent=styles["Heading2"], fontSize=14, spaceAfter=6, textColor=colors.HexColor("#333333"))
-    h3 = ParagraphStyle("h3", parent=styles["Heading3"], fontSize=12, spaceAfter=4, textColor=colors.HexColor("#555555"))
-    body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, spaceAfter=4, leading=14)
-    code = ParagraphStyle("code", parent=styles["Code"], fontSize=8, spaceAfter=4, fontName="Courier")
+    # ── Custom styles ─────────────────────────────────────────────────────────
+    cover_title = ParagraphStyle(
+        "cover_title",
+        parent=styles["Normal"],
+        fontSize=28,
+        leading=34,
+        spaceAfter=6,
+        textColor=colors.HexColor("#111111"),
+        fontName="Helvetica-Bold",
+    )
+    cover_sub = ParagraphStyle(
+        "cover_sub",
+        parent=styles["Normal"],
+        fontSize=11,
+        leading=16,
+        spaceAfter=4,
+        textColor=colors.HexColor("#888888"),
+        fontName="Helvetica",
+    )
+    h1 = ParagraphStyle(
+        "h1", parent=styles["Normal"],
+        fontSize=18, leading=24, spaceBefore=14, spaceAfter=6,
+        textColor=colors.HexColor("#111111"), fontName="Helvetica-Bold",
+        borderPad=0,
+    )
+    h2 = ParagraphStyle(
+        "h2", parent=styles["Normal"],
+        fontSize=13, leading=18, spaceBefore=12, spaceAfter=4,
+        textColor=colors.HexColor("#222222"), fontName="Helvetica-Bold",
+    )
+    h3 = ParagraphStyle(
+        "h3", parent=styles["Normal"],
+        fontSize=11, leading=16, spaceBefore=8, spaceAfter=3,
+        textColor=colors.HexColor("#444444"), fontName="Helvetica-Bold",
+    )
+    body = ParagraphStyle(
+        "body", parent=styles["Normal"],
+        fontSize=10, leading=15, spaceAfter=5,
+        textColor=colors.HexColor("#333333"), fontName="Helvetica",
+    )
+    bullet = ParagraphStyle(
+        "bullet", parent=styles["Normal"],
+        fontSize=10, leading=15, spaceAfter=3,
+        textColor=colors.HexColor("#333333"), fontName="Helvetica",
+        leftIndent=12, bulletIndent=0,
+    )
+    code_style = ParagraphStyle(
+        "code_style", parent=styles["Normal"],
+        fontSize=8, leading=12, spaceAfter=4,
+        textColor=colors.HexColor("#555555"), fontName="Courier",
+        backColor=colors.HexColor("#f5f5f5"),
+        leftIndent=8, rightIndent=8,
+    )
 
+    # ── Cover page ────────────────────────────────────────────────────────────
     story = []
-    story.append(Paragraph(title, h1))
-    story.append(Spacer(1, 4*mm))
-    story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#e5e5e5")))
-    story.append(Spacer(1, 4*mm))
+
+    # Spacer to push title down visually
+    story.append(Spacer(1, 40 * mm))
+    story.append(Paragraph(title, cover_title))
+    story.append(Spacer(1, 3 * mm))
+    story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor("#111111")))
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph("Art Protocol Studio", cover_sub))
+    story.append(Paragraph(datetime.now().strftime("Generated %B %d, %Y"), cover_sub))
+    story.append(PageBreak())
+
+    # ── Content ───────────────────────────────────────────────────────────────
+    in_code_block = False
 
     for line in content.split("\n"):
         line_stripped = line.strip()
-        if line_stripped.startswith("### "):
-            story.append(Paragraph(line_stripped[4:], h3))
+
+        # Code block toggle
+        if line_stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+
+        if in_code_block:
+            safe = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            story.append(Paragraph(safe or "&nbsp;", code_style))
+            continue
+
+        # Headings
+        if line_stripped.startswith("#### "):
+            safe = _escape(line_stripped[5:])
+            story.append(Paragraph(safe, h3))
+        elif line_stripped.startswith("### "):
+            safe = _escape(line_stripped[4:])
+            story.append(Paragraph(safe, h3))
         elif line_stripped.startswith("## "):
-            story.append(Paragraph(line_stripped[3:], h2))
+            safe = _escape(line_stripped[3:])
+            story.append(Spacer(1, 2 * mm))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e0e0e0")))
+            story.append(Paragraph(safe, h2))
         elif line_stripped.startswith("# "):
-            story.append(Paragraph(line_stripped[2:], h1))
-        elif line_stripped.startswith("```") or line_stripped.startswith("    "):
-            story.append(Paragraph(line.replace(" ", "&nbsp;"), code))
-        elif line_stripped == "---" or line_stripped == "===":
-            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#cccccc")))
-            story.append(Spacer(1, 2*mm))
-        elif line_stripped:
-            # Escape HTML special chars for reportlab
-            safe = line_stripped.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-            story.append(Paragraph(safe, body))
+            safe = _escape(line_stripped[2:])
+            story.append(Spacer(1, 4 * mm))
+            story.append(Paragraph(safe, h1))
+            story.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor("#dddddd")))
+
+        # Dividers
+        elif line_stripped in ("---", "===", "***"):
+            story.append(Spacer(1, 2 * mm))
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#dddddd")))
+            story.append(Spacer(1, 2 * mm))
+
+        # Bullet points
+        elif line_stripped.startswith("- ") or line_stripped.startswith("* "):
+            text = _escape_inline(line_stripped[2:])
+            story.append(Paragraph(f"&bull; &nbsp;{text}", bullet))
+
+        elif line_stripped.startswith("  - ") or line_stripped.startswith("  * "):
+            text = _escape_inline(line_stripped[4:])
+            story.append(Paragraph(f"&nbsp;&nbsp;&nbsp;&bull; &nbsp;{text}", bullet))
+
+        # Numbered list
+        elif len(line_stripped) > 2 and line_stripped[0].isdigit() and line_stripped[1] in ".)" and line_stripped[2] == " ":
+            text = _escape_inline(line_stripped[3:])
+            num = line_stripped[0]
+            story.append(Paragraph(f"{num}. &nbsp;{text}", bullet))
+
+        # Blockquote
+        elif line_stripped.startswith("> "):
+            safe = _escape_inline(line_stripped[2:])
+            bq = ParagraphStyle(
+                "bq", parent=body,
+                leftIndent=16, textColor=colors.HexColor("#666666"),
+                fontName="Helvetica-Oblique",
+            )
+            story.append(Paragraph(safe, bq))
+
+        # Empty line
+        elif not line_stripped:
+            story.append(Spacer(1, 3 * mm))
+
+        # Body text
         else:
-            story.append(Spacer(1, 3*mm))
+            safe = _escape_inline(line_stripped)
+            story.append(Paragraph(safe, body))
 
     doc.build(story)
     return buffer.getvalue()
+
+
+def _escape(text: str) -> str:
+    """Escape HTML special chars for ReportLab."""
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _escape_inline(text: str) -> str:
+    """Escape and convert inline markdown bold/italic to ReportLab tags."""
+    import re
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    # Bold: **text** or __text__
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    text = re.sub(r'__(.+?)__', r'<b>\1</b>', text)
+    # Italic: *text* or _text_
+    text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+    text = re.sub(r'_(.+?)_', r'<i>\1</i>', text)
+    # Inline code: `text`
+    text = re.sub(r'`(.+?)`', r'<font name="Courier" size="9">\1</font>', text)
+    return text
 
 # ─── ROUTES: HEALTH ───────────────────────────────────────────────────────────
 
@@ -587,14 +739,20 @@ async def chat(
     client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
     system_prompt = (
-        "You are an expert creative strategist reviewing brand, social media, "
-        "advertising, and proposal documents. Be precise, actionable, and strategic."
+        "You are an expert creative strategist and document editor at Art Protocol Studio. "
+        "You help users understand, improve, and build on their brand strategy documents. "
+        "Be precise, direct, and actionable. When asked to rewrite or improve something, "
+        "produce the actual improved text — not instructions about how to improve it. "
+        "When asked questions, answer from the document. "
+        "When asked to add something new, write it in the same voice and style as the document."
     )
     if body.context:
+        # Use up to 20000 chars — covers most research and brand documents fully
+        context_text = body.context[:20000]
         system_prompt += (
-            f"\n\nYou are analyzing this document:\n\n"
-            f"{body.context[:8000]}\n\n"
-            "Help the user understand, improve, or expand upon this content."
+            f"\n\n---\nDOCUMENT CONTENT:\n\n{context_text}\n---\n\n"
+            "The document above is what the user is working with. "
+            "Reference it specifically in your answers."
         )
 
     messages = []

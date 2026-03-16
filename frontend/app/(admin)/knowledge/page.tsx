@@ -20,14 +20,13 @@ export default function KnowledgePage() {
   const [uploadTags,   setUploadTags]   = useState("");
   const [error,        setError]        = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || "";
 
   useEffect(() => { loadFiles(); }, []);
 
   async function loadFiles() {
     setLoading(true);
     try {
-      setFiles(await getKnowledge(apiKey));
+      setFiles(await getKnowledge());
     } catch (e: any) {
       setError(e.message);
     }
@@ -40,7 +39,7 @@ export default function KnowledgePage() {
     setUploading(true);
     setError("");
     try {
-      await uploadKnowledge(file, uploadTags, apiKey);
+      await uploadKnowledge(file, uploadTags);
       setUploadTags("");
       await loadFiles();
     } catch (err: any) {
@@ -53,7 +52,7 @@ export default function KnowledgePage() {
   async function handleDelete(filename: string) {
     if (!confirm(`Delete ${filename}?`)) return;
     try {
-      await deleteKnowledge(filename, apiKey);
+      await deleteKnowledge(filename);
       await loadFiles();
     } catch (e: any) {
       setError(e.message);

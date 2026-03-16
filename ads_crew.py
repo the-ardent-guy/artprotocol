@@ -50,7 +50,11 @@ def wants_google(brief):
 def get_ads_folder(brand_name, product_name):
     safe_brand   = brand_name.replace(' ', '_')
     safe_product = product_name.replace(' ', '_').replace('/', '-')[:30]
-    folder = safe_brand + "_" + safe_product + "_Ads"
+    base = os.getenv("AP_CLIENT_BASE", "")
+    if base:
+        folder = os.path.join(base, safe_brand + "_" + safe_product + "_Ads")
+    else:
+        folder = safe_brand + "_" + safe_product + "_Ads"
     os.makedirs(folder, exist_ok=True)
     return folder
 

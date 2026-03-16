@@ -46,7 +46,11 @@ claude   = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 # FOLDER HELPER
 
 def get_research_folder(safe_name):
-    folder = safe_name + "_Research"
+    base = os.getenv("AP_CLIENT_BASE", "")
+    if base:
+        folder = os.path.join(base, safe_name + "_Research")
+    else:
+        folder = safe_name + "_Research"
     os.makedirs(folder, exist_ok=True)
     return folder
 
@@ -246,32 +250,50 @@ def ask_claude(prompt, system="You are a senior research analyst.", model="claud
 def layer1_query_understanding(brief):
     print("\n  L1 - Query Understanding: building research plan...")
 
+    location = brief.get('location', '') or 'the primary market'
+    customer = brief.get('customer', '') or 'target customers'
+    competitors = brief.get('competitors', '') or 'key competitors'
+    problem = brief.get('problem_solved', '') or ''
+    stage = brief.get('stage', 'new')
+
     prompt = (
         "I need to deeply research this brand before building its strategy.\n\n"
         "Brand: " + brief['brand_name'] + "\n"
         "What it is: " + brief['what_it_is'] + "\n"
-        "Category: " + brief['category'] + " / " + brief['subcategory'] + "\n"
-        "Location: " + brief['location'] + "\n"
-        "Customer: " + brief['customer'] + "\n"
-        "Problem solved: " + brief['problem_solved'] + "\n"
-        "Competitors: " + brief['competitors'] + "\n"
-        "Founder belief: " + brief['founder_belief'] + "\n\n"
+        "Category: " + brief['category'] + "\n"
+        "Location / Primary market: " + location + "\n"
+        "Target customer: " + customer + "\n"
+        "Problem solved: " + problem + "\n"
+        "Known competitors: " + competitors + "\n"
+        "Stage: " + stage + "\n\n"
         "Deliver a research plan in 4 parts:\n\n"
         "PART 1 - SUB-QUESTIONS (10 specific research questions)\n"
-        "For each: question, why it matters, "
+        "For each: question, why it matters for brand strategy, "
         "answer type (factual/comparative/causal/predictive/cultural)\n\n"
         "PART 2 - AMBIGUITY FLAGS\n"
         "What is unclear in this brief that affects research direction? "
-        "List 3-5 ambiguities and the assumption being made for each.\n\n"
+        "List 3-5 ambiguities and the assumption you are making for each.\n\n"
         "PART 3 - RESEARCH SCOPE\n"
         "Primary markets to focus on. Time horizon (relevant years). "
         "Data types needed. What to explicitly exclude.\n\n"
         "PART 4 - SEARCH PLAN\n"
-        "15 specific search queries to run. "
-        "For each: query string, source type to prioritize, what a good result looks like."
+        "15 specific search queries tailored to this brand, category, and location. "
+        "Do NOT use generic or India-specific queries unless the brand is India-based. "
+        "For each query: the exact search string, source type to prioritize "
+        "(industry report / news / social / review), "
+        "and what a good result looks like.\n\n"
+        "Format each query on its own line as: QUERY: [exact search string]"
     )
 
-    result = ask_claude(prompt, max_tokens=2000)
+    result = ask_claude(
+        prompt,
+        system="You are a senior brand strategist and research director. "
+               "You build precise research plans that uncover genuine strategic insight. "
+               "Every query you write must be specific to this brand's actual context — "
+               "never generic. Your search plan will drive the entire research pipeline.",
+        model="claude-sonnet-4-6",
+        max_tokens=3000
+    )
     print("  done: Research plan built")
     return result
 
@@ -283,26 +305,56 @@ def layer2_retrieval(brief, research_plan):
     print("\n  L2 - Retrieval: web search + full page extraction + follow-up branches...")
 
     b = brief
-    comp_list = b['competitors'].split(',')
-    comp1 = comp_list[0].strip() if comp_list else b['competitors']
+    location = b.get('location', '') or 'global'
+    customer = b.get('customer', '') or ''
+    problem  = b.get('problem_solved', '') or ''
+    comp_list = b.get('competitors', '').split(',')
+    comp1 = comp_list[0].strip() if comp_list and comp_list[0].strip() else b['brand_name']
 
-    base_queries = [
-        (b['category'] + " " + b['subcategory'] + " market size India 2024 2025", "Market Size"),
-        (b['category'] + " consumer behavior " + b['location'] + " Gen Z millennials", "Consumer Behavior"),
-        (b['problem_solved'] + " India unmet need pain point consumer", "Problem Validation"),
-        (comp1 + " brand positioning marketing strategy India", "Competitor 1"),
-        (b['competitors'] + " " + b['category'] + " India market comparison", "Competitor Landscape"),
-        (b['brand_name'] + " India review feedback customer", "Brand Perception"),
-        (b['category'] + " culture " + b['location'] + " lifestyle habits", "Cultural Context"),
-        (b['category'] + " India industry report growth CAGR 2025", "Industry Data"),
-        (b['category'] + " D2C brand India success failure case study", "Case Studies"),
-        (b['customer'] + " spending habits food lifestyle India 2025", "Customer Trends"),
-        (b['category'] + " whitespace opportunity India underserved segment", "Market Gaps"),
-        (b['category'] + " packaging design trend India Gen Z", "Design Trends"),
-        (comp1 + " Instagram social media strategy content India", "Competitor Social"),
-        (b['brand_name'] + " " + b['category'] + " UK diaspora international market", "International Market"),
-        (b['category'] + " pricing strategy India premium affordable segment", "Pricing Intel"),
+    # PRIMARY: Extract dynamic queries from L1 research plan
+    # L1 formats each query as: QUERY: [exact search string]
+    dynamic_queries = []
+    for line in research_plan.split('\n'):
+        line = line.strip()
+        if line.upper().startswith("QUERY:"):
+            q = line[6:].strip().strip('"').strip("'").strip('[').strip(']')
+            if q and len(q) > 8:
+                dynamic_queries.append(q)
+
+    print(f"    [L1 queries extracted: {len(dynamic_queries)}]")
+
+    # FALLBACK: location-aware base queries if L1 didn't produce enough
+    fallback_queries = [
+        (b['category'] + " market size " + location + " 2024 2025",                   "Market Size"),
+        (b['category'] + " consumer behavior " + location,                             "Consumer Behavior"),
+        (problem[:60] + " " + location + " unmet need consumer",                       "Problem Validation"),
+        (comp1 + " brand strategy positioning " + location,                            "Competitor 1"),
+        (b.get('competitors', '') + " " + b['category'] + " " + location,             "Competitor Landscape"),
+        (b['brand_name'] + " " + location + " review customer feedback",               "Brand Perception"),
+        (b['category'] + " culture " + location + " lifestyle habits",                 "Cultural Context"),
+        (b['category'] + " industry report growth 2024 2025",                          "Industry Data"),
+        (b['category'] + " brand case study success failure",                          "Case Studies"),
+        (customer[:60] + " spending habits " + location + " 2024" if customer else
+         b['category'] + " target audience " + location,                               "Customer Trends"),
+        (b['category'] + " whitespace opportunity underserved " + location,            "Market Gaps"),
+        (b['category'] + " pricing strategy premium " + location,                     "Pricing Intel"),
+        (comp1 + " social media marketing strategy",                                   "Competitor Social"),
+        (b['brand_name'] + " " + b['category'] + " positioning differentiation",      "Differentiation"),
+        (b['category'] + " trends innovation 2025",                                    "Trends"),
     ]
+
+    # Use dynamic queries if L1 gave us enough, else pad with fallbacks
+    if len(dynamic_queries) >= 10:
+        # Use all dynamic queries with generic labels
+        base_queries = [(q, f"Research Query {i+1}") for i, q in enumerate(dynamic_queries[:15])]
+        print("    Using L1 dynamic search plan")
+    else:
+        # Pad dynamic with fallbacks to reach 15
+        combined = [(q, f"Research Query {i+1}") for i, q in enumerate(dynamic_queries)]
+        needed = 15 - len(combined)
+        combined += fallback_queries[:needed]
+        base_queries = combined
+        print(f"    Using {len(dynamic_queries)} L1 queries + {needed} fallbacks")
 
     all_findings = ""
     all_sources = []
@@ -336,10 +388,10 @@ def layer2_retrieval(brief, research_plan):
 
                 # Trigger follow-up on competitor mentions
                 content_lower = content.lower()
-                for comp in brief['competitors'].split(','):
+                for comp in brief.get('competitors', '').split(','):
                     comp = comp.strip().lower()
                     if comp and len(comp) > 3 and comp in content_lower:
-                        q = comp + " India market strategy brand 2024"
+                        q = comp + " " + location + " brand strategy market 2024"
                         if q not in follow_up_triggers:
                             follow_up_triggers.append(q)
 
@@ -397,7 +449,7 @@ def layer3_extraction(brief, depth_findings):
         "Research data:\n" + depth_findings[:5000]
     )
 
-    extraction = ask_claude(claims_prompt, max_tokens=2500)
+    extraction = ask_claude(claims_prompt, model="claude-haiku-4-5-20251001", max_tokens=2500)
 
     # Step 2: Identify and verify top claims
     verify_prompt = (
@@ -408,7 +460,7 @@ def layer3_extraction(brief, depth_findings):
         + extraction[:2000]
     )
 
-    top_claims_text = ask_claude(verify_prompt, max_tokens=400)
+    top_claims_text = ask_claude(verify_prompt, model="claude-haiku-4-5-20251001", max_tokens=400)
 
     verification = ""
     print("    Verifying key claims with secondary searches...")
@@ -420,7 +472,7 @@ def layer3_extraction(brief, depth_findings):
         if line and line[0].isdigit() and len(line) > 2:
             line = line[2:].strip()
         results, _ = google_search(
-            "verify " + line[:80] + " " + brief['category'] + " India 2024",
+            "verify " + line[:80] + " " + brief['category'] + " " + brief.get('location', '') + " 2024",
             num=3
         )
         verification += "\nCLAIM: " + line + "\n"
@@ -441,13 +493,14 @@ def layer3_extraction(brief, depth_findings):
 def layer4_adversarial(brief, depth_findings, extraction):
     print("\n  L4 - Adversarial + Iterative Deepening...")
 
-    # Adversarial searches
+    # Adversarial searches — location-aware, no hardcoded geography
+    loc = brief.get('location', '')
     adversarial_queries = [
-        brief['category'] + " brand failures India lessons learned",
-        "problems " + brief['category'] + " " + brief['location'] + " consumer complaints negative",
-        brief['category'] + " market risks challenges India 2025",
-        "why consumers stop buying " + brief['category'] + " India churn reasons",
-        brief['brand_name'] + " negative review criticism problem India",
+        brief['category'] + " brand failures " + loc + " lessons learned",
+        "problems " + brief['category'] + " " + loc + " consumer complaints negative",
+        brief['category'] + " market risks challenges 2024 2025",
+        "why consumers stop buying " + brief['category'] + " " + loc + " churn reasons",
+        brief['brand_name'] + " negative review criticism problem",
     ]
 
     adversarial_findings = ""
@@ -563,48 +616,77 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         "- Every insight must be actionable for a brand strategist."
     )
 
+    # Smart truncation: distribute context budget across layers
+    # Total ~16000 chars across all inputs to stay within model context
+    depth_chunk     = depth_findings[:8000]
+    extraction_chunk = extraction[:3000]
+    adversarial_chunk = adversarial[:2500]
+    plan_chunk      = research_plan[:1000]
+
+    location = brief.get('location', 'the primary market')
+    customer = brief.get('customer', 'target customers')
+    problem  = brief.get('problem_solved', '')
+    competitors = brief.get('competitors', '')
+    stage    = brief.get('stage', 'new')
+
     synthesis_prompt = (
         "Write the complete research report for " + brief['brand_name'] + ".\n\n"
         "BRAND: " + brief['brand_name'] + " | " + brief['what_it_is'] + "\n"
-        "CATEGORY: " + brief['category'] + " / " + brief['subcategory'] + "\n"
-        "LOCATION: " + brief['location'] + " | CUSTOMER: " + brief['customer'] + "\n"
-        "PROBLEM: " + brief['problem_solved'] + "\n"
-        "COMPETITORS: " + brief['competitors'] + "\n"
-        "STAGE: " + brief['stage'] + "\n\n"
-        "RESEARCH PLAN:\n" + research_plan[:800] + "\n\n"
-        "DEPTH FINDINGS:\n" + depth_findings[:6000] + "\n\n"
-        "CLAIMS AND EXTRACTION:\n" + extraction[:2500] + "\n\n"
-        "ADVERSARIAL AND GAPS:\n" + adversarial[:2000] + "\n\n"
+        "CATEGORY: " + brief['category'] + "\n"
+        "LOCATION: " + location + "\n"
+        "CUSTOMER: " + customer + "\n"
+        "PROBLEM SOLVED: " + problem + "\n"
+        "KNOWN COMPETITORS: " + competitors + "\n"
+        "STAGE: " + stage + "\n\n"
+        "RESEARCH PLAN:\n" + plan_chunk + "\n\n"
+        "DEPTH FINDINGS:\n" + depth_chunk + "\n\n"
+        "CLAIMS AND EXTRACTION:\n" + extraction_chunk + "\n\n"
+        "ADVERSARIAL AND GAPS:\n" + adversarial_chunk + "\n\n"
         "SOURCES:\n" + source_index + "\n\n"
-        "Write each section fully. Use markdown formatting throughout.\n\n"
+        "Write each section fully. Use markdown formatting throughout. "
+        "Never truncate a section. Complete every section before moving to the next.\n\n"
         "## EXECUTIVE SUMMARY\n"
         "5 sentences. High-confidence findings only. Specific numbers where available.\n\n"
         "### DATA SNAPSHOT\n"
-        "List 5-8 key metrics, one per line, in format '- Label: Value' (e.g. '- Market Size: $4.2B', '- CAGR: 18%', '- Digital Share: 62%'). Use real numbers from sources.\n\n"
+        "5-8 key metrics, one per line: '- Label: Value' "
+        "(e.g. '- Market Size: $4.2B', '- CAGR: 18%'). Use real numbers from sources only.\n\n"
         "## MARKET FINDINGS\n"
-        "Size, growth, structure. Every claim tagged [ESTABLISHED], [EMERGING], or [SPECULATIVE] and sourced. Use a markdown table for market segments if relevant.\n\n"
+        "Size, growth, structure. Every claim tagged [ESTABLISHED], [EMERGING], or [SPECULATIVE] "
+        "and sourced. Use a markdown table for market segments if relevant.\n\n"
         "## CONSUMER PSYCHOLOGY\n"
-        "Real desires, fears, tribal signals. Specific to " + brief['location']
-        + " and " + brief['customer'] + ". Not generic. Use bullet points.\n\n"
+        "Real desires, fears, identity signals. Specific to " + location + " and " + customer + ". "
+        "Not generic — every point must be traceable to this brand's actual audience. Bullet points.\n\n"
         "## CULTURAL CONTEXT\n"
-        "Hyperlocal behaviors, rituals, forces outsiders miss. Use bullet points.\n\n"
+        "Hyperlocal behaviors, rituals, cultural forces outsiders miss. "
+        "Specific to " + location + ". Bullet points.\n\n"
         "## COMPETITIVE LANDSCAPE\n"
         "Who is winning, why, and the specific gap they are leaving open.\n"
-        "Include a markdown table: | Competitor | Strength | Weakness | Gap Left Open |\n\n"
+        "Include a markdown table: | Competitor | Core Strength | Key Weakness | Gap Left Open |\n\n"
+        "## DIFFERENTIATION OPPORTUNITY\n"
+        "Based on the competitive landscape and consumer psychology: "
+        "what is the one positioning territory that is genuinely unclaimed? "
+        "What can " + brief['brand_name'] + " own that no competitor currently owns? "
+        "Be specific — not 'be authentic' or 'focus on quality'. "
+        "What exact narrative, audience insight, or cultural moment creates this opening?\n\n"
+        "## BRAND BUILDING IMPLICATIONS\n"
+        "5 specific findings from this research that the branding crew must know. "
+        "These are the non-negotiables that should shape brand archetype, voice, and visual identity. "
+        "For each: the finding, why it matters for branding, and what would go wrong if ignored.\n\n"
         "## CONTESTED TERRAIN\n"
         "Where sources disagree. Every contradiction surfaced. Tag claims [CONTESTED].\n\n"
         "## CONFIDENCE ASSESSMENT\n"
-        "Two columns: HIGH confidence findings vs LOW confidence. What we know vs what we inferred.\n\n"
+        "Two columns: HIGH confidence findings (multiple agreeing sources) vs "
+        "LOW confidence (inferred or single source). Be honest about what we don't know.\n\n"
         "## RESEARCH GAPS\n"
-        "What could not be verified. What field research would resolve. Numbered list.\n\n"
+        "What could not be verified online. What primary/field research would resolve this. "
+        "Numbered list.\n\n"
         "## STRATEGIC IMPLICATIONS\n"
-        "5 specific opportunities. For each, use this exact format:\n"
+        "5 specific opportunities for " + brief['brand_name'] + ". "
+        "For each, use this exact format:\n"
         "**Opportunity N: [Name]**\n"
-        "- Finding: ...\n"
-        "- Implication: ...\n"
-        "- Recommendation: ...\n\n"
-        "## SUGGESTED FOLLOW-UP QUESTIONS\n"
-        "5 questions a senior strategist would probe next. Numbered list.\n\n"
+        "- Finding: [specific data point or observation]\n"
+        "- Implication: [what this means for the brand]\n"
+        "- Recommendation: [concrete action]\n\n"
         "## VERIFIED SOURCES\n"
         "Full numbered list with credibility ratings [HIGH/MEDIUM/LOW]."
     )
@@ -795,5 +877,67 @@ def run():
     return final_report
 
 
+def run_headless(client_name: str, brief_json: str):
+    """
+    Headless entrypoint for CLI / run_crew.py subprocess calls.
+    Accepts a client name and a JSON brief string.
+    Saves output to clients/<client_name>/ folder.
+    """
+    import argparse as _argparse
+
+    try:
+        brief = json.loads(brief_json)
+    except json.JSONDecodeError as e:
+        print(f"[ERROR] Invalid brief JSON: {e}", flush=True)
+        sys.exit(1)
+
+    # Fill in defaults from brief fields
+    safe_name = brief.get("brand_name", client_name).replace(" ", "_")
+
+    # Patch checkpoint to never ask resume question (always fresh in headless mode)
+    def load_checkpoint_headless(name):
+        return {"completed_layers": [], "data": {}, "brief": {}}
+
+    # Override the module-level load_checkpoint for this run
+    import research as _self
+    _original_load = _self.load_checkpoint
+    _self.load_checkpoint = load_checkpoint_headless
+
+    # Override get_client_brief to return the passed brief
+    _original_brief = _self.get_client_brief
+    _self.get_client_brief = lambda: brief
+
+    try:
+        result = run()
+    finally:
+        _self.load_checkpoint = _original_load
+        _self.get_client_brief = _original_brief
+
+    # Copy final report to clients/<client_name>/ folder
+    report_src = os.path.join(
+        safe_name + "_Research",
+        safe_name + "_research_report.txt"
+    )
+    if os.path.exists(report_src):
+        dest_dir = os.path.join("clients", client_name)
+        os.makedirs(dest_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+        dest_file = os.path.join(dest_dir, f"research_{timestamp}.txt")
+        import shutil
+        shutil.copy2(report_src, dest_file)
+        print(f"\n[SAVED] Output -> {dest_file}", flush=True)
+
+    return result
+
+
 if __name__ == "__main__":
-    run()
+    import argparse as _ap
+    _parser = _ap.ArgumentParser(description="Art Protocol Research Agent")
+    _parser.add_argument("--client",     default=None, help="Client folder name")
+    _parser.add_argument("--brief-json", default=None, help="Brief as JSON string")
+    _args, _unknown = _parser.parse_known_args()
+
+    if _args.client and _args.brief_json:
+        run_headless(_args.client, _args.brief_json)
+    else:
+        run()
