@@ -7,35 +7,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential gcc curl git \
     && rm -rf /var/lib/apt/lists/*
 
-# Install heavy crew deps first (separate layer for caching)
-RUN pip install --no-cache-dir \
-    crewai>=0.80.0 \
-    crewai-tools>=0.20.0 \
-    google-search-results>=2.4.2 \
-    serpapi>=0.1.5 \
-    beautifulsoup4>=4.12.0
-
-# Install remaining backend deps
-COPY backend/requirements.txt .
+# Copy requirements and install — separate layer for caching
+COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend source
-COPY backend/ /app/backend/
+COPY backend/main.py /app/main.py
+COPY backend/database.py /app/database.py
 
-# Copy crew files from repo root
+# Copy crew engine files
 COPY run_crew.py /app/run_crew.py
+COPY research.py /app/research.py
 COPY branding_crew.py /app/branding_crew.py
 COPY social_crew.py /app/social_crew.py
 COPY ads_crew.py /app/ads_crew.py
 COPY proposal_crew.py /app/proposal_crew.py
-COPY research.py /app/research.py
+COPY memory_stack.py /app/memory_stack.py
 
-WORKDIR /app/backend
+# Create data directories
+RUN mkdir -p /app/data /app/data/clients/users /app/knowledge
 
-RUN mkdir -p /app/clients/users
-
+# Environment
 ENV PROJECT_ROOT=/app
-ENV CLIENTS_DIR=clients
+ENV CLIENTS_DIR=/app/data/clients
+ENV DB_PATH=/app/data/artprotocol.db
 ENV PYTHON_EXEC=python
 
 EXPOSE 8000

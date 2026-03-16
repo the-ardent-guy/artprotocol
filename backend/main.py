@@ -34,8 +34,8 @@ import database as db
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 BACKEND_API_KEY  = os.getenv("BACKEND_API_KEY", "dev-secret")
-PROJECT_ROOT     = os.path.abspath(os.getenv("PROJECT_ROOT", ".."))
-CLIENTS_DIR      = os.path.join(PROJECT_ROOT, os.getenv("CLIENTS_DIR", "clients"))
+PROJECT_ROOT     = os.path.abspath(os.getenv("PROJECT_ROOT", os.path.dirname(__file__)))
+CLIENTS_DIR      = os.getenv("CLIENTS_DIR") or os.path.join(PROJECT_ROOT, "clients")
 USER_CLIENTS_DIR = os.path.join(CLIENTS_DIR, "users")
 JWT_SECRET       = os.getenv("JWT_SECRET", "ap-jwt-secret-change-in-prod")
 JWT_ALGORITHM    = "HS256"
