@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-const API_KEY = process.env.BACKEND_API_KEY || "";
+const BACKEND_URL = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").trim();
+const API_KEY = (process.env.BACKEND_API_KEY || "").trim();
 
 async function proxy(req: NextRequest, params: { path: string[] }) {
   const path = params.path.join("/");
