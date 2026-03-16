@@ -36,7 +36,9 @@ from memory_stack import (
 
 def save_to_client_folder(client_name, crew_name, content):
     """Save output to the client's folder and return the path."""
-    folder = os.path.join("clients", client_name)
+    # Use CLIENTS_DIR env var so Railway and local both save to the right place
+    clients_base = os.getenv("CLIENTS_DIR") or os.path.join(ROOT, "clients")
+    folder = os.path.join(clients_base, client_name)
     os.makedirs(folder, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
     filename = f"{crew_name}_{timestamp}.txt"
@@ -383,11 +385,13 @@ def main():
             brand_document = f.read()
         print(f"[OK] Brand document loaded ({len(brand_document)} chars)", flush=True)
 
-    os.makedirs(f"clients/{args.client}", exist_ok=True)
+    clients_base = os.getenv("CLIENTS_DIR") or os.path.join(ROOT, "clients")
+    os.makedirs(os.path.join(clients_base, args.client), exist_ok=True)
 
     # Set AP_CLIENT_BASE so crew files save intermediate outputs
     # inside clients/<client>/ instead of workspace root
-    os.environ["AP_CLIENT_BASE"] = os.path.join(ROOT, "clients", args.client)
+    clients_base = os.getenv("CLIENTS_DIR") or os.path.join(ROOT, "clients")
+    os.environ["AP_CLIENT_BASE"] = os.path.join(clients_base, args.client)
 
     # Init memory with brief
     init_memory(args.client, brief)
