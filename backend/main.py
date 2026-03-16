@@ -411,6 +411,22 @@ def _escape_inline(text: str) -> str:
 async def health():
     return {"status": "ok", "project_root": PROJECT_ROOT}
 
+
+@app.delete("/admin/users/all")
+async def clear_all_users(x_api_key: str = Depends(verify_api_key)):
+    """Clear all public user accounts. Admin only."""
+    conn = db.get_db()
+    try:
+        before = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        conn.execute("DELETE FROM user_jobs")
+        conn.execute("DELETE FROM credit_transactions")
+        conn.execute("DELETE FROM users")
+        conn.commit()
+        after = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        return {"deleted": before, "remaining": after}
+    finally:
+        conn.close()
+
 # ─── ROUTES: CLIENTS ─────────────────────────────────────────────────────────
 
 @app.get("/clients")
