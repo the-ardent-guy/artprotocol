@@ -592,12 +592,8 @@ export default function ProjectChatPage() {
 
         if (dels.length === 0) {
           setSelDept(dept);
-          if (dnaExists || fromOnboarding) {
-            // DNA exists — skip intake, deploy straight away
-            setTimeout(() => startDeployFromDNA(dept, proj), 600);
-          } else if (searchParams.get("start") === "1") {
-            setTimeout(() => startIntake(dept), 600);
-          }
+          // Always skip intake — brief or DNA is enough
+          setTimeout(() => startDeployFromDNA(dept, proj), 600);
         }
       } catch (e: any) { setMessages([{ kind: "error", text: e.message }]); }
     })();
@@ -629,14 +625,14 @@ export default function ProjectChatPage() {
   }
 
   async function startDeployFromDNA(deptId: string, proj: Project) {
-    // Skip all intake — DNA was collected during onboarding. Deploy immediately.
     const d = deptInfo(deptId);
-    addMsg({ kind: "user", text: proj.brief || proj.name });
+    if (messages.length === 0) {
+      addMsg({ kind: "user", text: proj.brief || proj.name });
+    }
     addMsg({
       kind: "assistant",
-      text: `Brand DNA loaded. Starting **${d.icon} ${d.name}** — estimated **~${d.eta}**.`,
+      text: `Starting **${d.icon} ${d.name}** — estimated **~${d.eta}**.`,
     });
-    // Pass empty answers — the backend will enrich from DNA
     await startDeploy(deptId, {});
   }
 
@@ -997,11 +993,7 @@ export default function ProjectChatPage() {
                   <button
                     onClick={e => {
                       e.stopPropagation();
-                      if (hasDNA && project) {
-                        startDeployFromDNA(d.id, project);
-                      } else {
-                        startIntake(d.id);
-                      }
+                      if (project) startDeployFromDNA(d.id, project);
                     }}
                     disabled={isActive}
                     style={{
