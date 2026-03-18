@@ -564,6 +564,7 @@ export default function ProjectChatPage() {
   const [deploying, setDeploying] = useState(false);
   const [viewer,    setViewer]    = useState<Deliverable | null>(null);
   const [intake,    setIntake]    = useState<IntakeState | null>(null);
+  const [hasDNA,    setHasDNA]    = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
@@ -572,24 +573,31 @@ export default function ProjectChatPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [proj, dels] = await Promise.all([
+        const [proj, dels, dna] = await Promise.all([
           apiFetch<Project>(`/me/projects/${id}`),
           apiFetch<Deliverable[]>(`/me/projects/${id}/deliverables`),
+          apiFetch<{ raw_fields: any; enriched_fields: any }>(`/me/projects/${id}/dna`).catch(() => ({ raw_fields: null, enriched_fields: null })),
         ]);
         setProject(proj);
+        const dnaExists = !!(dna?.raw_fields);
+        setHasDNA(dnaExists);
+
         const hist: Msg[] = [];
         if (proj.brief) hist.push({ kind: "user", text: proj.brief });
         dels.forEach(d => hist.push({ kind: "result", deliverable: d }));
         if (hist.length) setMessages(hist);
-        if (searchParams.get("from") === "onboarding" && dels.length === 0) {
-          // Coming from DNA onboarding — skip intake, deploy directly using DNA
-          const dept = searchParams.get("dept") ?? "research";
+
+        const fromOnboarding = searchParams.get("from") === "onboarding";
+        const dept = searchParams.get("dept") ?? "research";
+
+        if (dels.length === 0) {
           setSelDept(dept);
-          setTimeout(() => startDeployFromDNA(dept, proj), 600);
-        } else if (searchParams.get("start") === "1" && dels.length === 0) {
-          const dept = searchParams.get("dept") ?? "research";
-          setSelDept(dept);
-          setTimeout(() => startIntake(dept), 600);
+          if (dnaExists || fromOnboarding) {
+            // DNA exists — skip intake, deploy straight away
+            setTimeout(() => startDeployFromDNA(dept, proj), 600);
+          } else if (searchParams.get("start") === "1") {
+            setTimeout(() => startIntake(dept), 600);
+          }
         }
       } catch (e: any) { setMessages([{ kind: "error", text: e.message }]); }
     })();
@@ -987,7 +995,14 @@ export default function ProjectChatPage() {
                 {/* Deploy button — only shown for selected, non-running dept */}
                 {isSelected && status !== "RUNNING" && (
                   <button
-                    onClick={e => { e.stopPropagation(); startIntake(d.id); }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (hasDNA && project) {
+                        startDeployFromDNA(d.id, project);
+                      } else {
+                        startIntake(d.id);
+                      }
+                    }}
                     disabled={isActive}
                     style={{
                       width: "100%", padding: "0.45rem 0", borderRadius: 8,
