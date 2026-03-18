@@ -256,6 +256,21 @@ def layer1_query_understanding(brief):
     problem = brief.get('problem_solved', '') or ''
     stage = brief.get('stage', 'new')
 
+    # DNA enrichment context for L1 (if available from Brand DNA system)
+    dna_context = ""
+    brand_archetype = brief.get("brand_archetype", "")
+    tone_axis       = brief.get("tone_axis", "")
+    comp_keywords   = brief.get("competitor_keywords", "")
+    if brand_archetype or tone_axis or comp_keywords:
+        dna_context = "\nBRAND DNA (pre-defined):\n"
+        if brand_archetype:
+            dna_context += f"  Archetype: {brand_archetype}\n"
+        if tone_axis:
+            dna_context += f"  Tone axis: {tone_axis}\n"
+        if comp_keywords:
+            dna_context += f"  Competitor keywords to research: {comp_keywords}\n"
+        dna_context += "\nIncorporate these Brand DNA fields into your research plan — validate, deepen, or challenge them.\n"
+
     prompt = (
         "I need to deeply research this brand before building its strategy.\n\n"
         "Brand: " + brief['brand_name'] + "\n"
@@ -265,7 +280,8 @@ def layer1_query_understanding(brief):
         "Target customer: " + customer + "\n"
         "Problem solved: " + problem + "\n"
         "Known competitors: " + competitors + "\n"
-        "Stage: " + stage + "\n\n"
+        "Stage: " + stage + "\n"
+        + dna_context + "\n"
         "Deliver a research plan in 4 parts:\n\n"
         "PART 1 - SUB-QUESTIONS (10 specific research questions)\n"
         "For each: question, why it matters for brand strategy, "
@@ -629,8 +645,7 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
     competitors = brief.get('competitors', '')
     stage    = brief.get('stage', 'new')
 
-    synthesis_prompt = (
-        "Write the complete research report for " + brief['brand_name'] + ".\n\n"
+    brand_context = (
         "BRAND: " + brief['brand_name'] + " | " + brief['what_it_is'] + "\n"
         "CATEGORY: " + brief['category'] + "\n"
         "LOCATION: " + location + "\n"
@@ -642,7 +657,12 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         "DEPTH FINDINGS:\n" + depth_chunk + "\n\n"
         "CLAIMS AND EXTRACTION:\n" + extraction_chunk + "\n\n"
         "ADVERSARIAL AND GAPS:\n" + adversarial_chunk + "\n\n"
-        "SOURCES:\n" + source_index + "\n\n"
+        "SOURCES:\n" + source_index
+    )
+
+    synthesis_prompt_1 = (
+        "Write the FIRST HALF of the research report for " + brief['brand_name'] + ".\n\n"
+        + brand_context + "\n\n"
         "Write each section fully. Use markdown formatting throughout. "
         "Never truncate a section. Complete every section before moving to the next.\n\n"
         "## EXECUTIVE SUMMARY\n"
@@ -661,7 +681,14 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         "Specific to " + location + ". Bullet points.\n\n"
         "## COMPETITIVE LANDSCAPE\n"
         "Who is winning, why, and the specific gap they are leaving open.\n"
-        "Include a markdown table: | Competitor | Core Strength | Key Weakness | Gap Left Open |\n\n"
+        "Include a markdown table: | Competitor | Core Strength | Key Weakness | Gap Left Open |"
+    )
+
+    synthesis_prompt_2 = (
+        "Write the SECOND HALF of the research report for " + brief['brand_name'] + ".\n\n"
+        + brand_context + "\n\n"
+        "Write each section fully. Use markdown formatting throughout. "
+        "Never truncate a section. Complete every section before moving to the next.\n\n"
         "## DIFFERENTIATION OPPORTUNITY\n"
         "Based on the competitive landscape and consumer psychology: "
         "what is the one positioning territory that is genuinely unclaimed? "
@@ -691,13 +718,23 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         "Full numbered list with credibility ratings [HIGH/MEDIUM/LOW]."
     )
 
-    print("    Generating synthesis draft...")
-    draft_report = ask_claude(
-        synthesis_prompt,
+    print("    Generating synthesis draft (part 1: Executive Summary → Competitive Landscape)...")
+    draft_part1 = ask_claude(
+        synthesis_prompt_1,
         system=synthesis_system,
         model="claude-sonnet-4-6",
-        max_tokens=7000
+        max_tokens=4000
     )
+
+    print("    Generating synthesis draft (part 2: Differentiation → Verified Sources)...")
+    draft_part2 = ask_claude(
+        synthesis_prompt_2,
+        system=synthesis_system,
+        model="claude-sonnet-4-6",
+        max_tokens=4000
+    )
+
+    draft_report = draft_part1 + "\n\n" + draft_part2
 
     # REFLECTION LOOP: self-review for gaps and unsupported claims
     print("    Running reflection loop...")
@@ -873,6 +910,119 @@ def run():
                 print("[OK] Checkpoint cleaned up.")
             except Exception:
                 pass
+
+    return final_report
+
+
+def run_headless_direct(brief: dict, client_name: str) -> str:
+    """
+    Run all 5 research layers directly from a brief dict — no input() calls.
+    Saves output to clients/<client_name>/ and returns the final report string.
+    """
+    safe_name = brief.get("brand_name", client_name).replace(" ", "_")
+
+    print(f"\n>> Starting deep research for {brief.get('brand_name', client_name)}...")
+    print("5-layer pipeline. Saves after every layer.\n")
+
+    import time as _time
+    start_time = _time.time()
+    checkpoint = {"completed_layers": [], "data": {}, "brief": brief}
+    save_checkpoint(safe_name, checkpoint)
+
+    all_sources = []
+    final_report = ""
+    source_index = ""
+
+    try:
+        # L1
+        research_plan = layer1_query_understanding(brief)
+        save_layer_output(safe_name, "layer1", research_plan, checkpoint)
+
+        # L2
+        depth_findings, sources2 = layer2_retrieval(brief, research_plan)
+        all_sources += sources2
+        save_layer_output(safe_name, "layer2", depth_findings, checkpoint)
+        checkpoint["data"]["sources"] = sources2
+        save_checkpoint(safe_name, checkpoint)
+
+        # L3
+        extraction = layer3_extraction(brief, depth_findings)
+        save_layer_output(safe_name, "layer3", extraction, checkpoint)
+
+        # L4
+        adversarial, sources4 = layer4_adversarial(brief, depth_findings, extraction)
+        all_sources += sources4
+        save_layer_output(safe_name, "layer4", adversarial, checkpoint)
+
+        # L5
+        final_report, source_index = layer5_synthesis(
+            brief, research_plan, depth_findings, extraction, adversarial, all_sources
+        )
+        save_layer_output(safe_name, "layer5", final_report, checkpoint)
+
+    except Exception as e:
+        print(f"\n[ERROR] Research failed: {e}")
+        traceback.print_exc()
+        final_report = checkpoint["data"].get("layer5", "")
+        if not final_report and "layer2" in checkpoint["completed_layers"]:
+            print("\n[RECOVERY] Emergency synthesis from completed layers...")
+            try:
+                final_report, source_index = layer5_synthesis(
+                    brief,
+                    checkpoint["data"].get("layer1", ""),
+                    checkpoint["data"].get("layer2", ""),
+                    checkpoint["data"].get("layer3", "No extraction completed"),
+                    checkpoint["data"].get("layer4", "No adversarial completed"),
+                    all_sources
+                )
+                save_layer_output(safe_name, "layer5", final_report, checkpoint)
+            except Exception as e2:
+                print(f"[RECOVERY FAILED] {e2}")
+                final_report = f"Research failed. Partial data saved. Error: {e}"
+
+    # Save final report
+    folder = get_research_folder(safe_name)
+    filename = os.path.join(folder, safe_name + "_research_report.txt")
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write("DEEP RESEARCH REPORT: " + brief.get("brand_name", "").upper() + "\n")
+            f.write("Category: " + brief.get("category", "") + " | Location: " + brief.get("location", "") + "\n")
+            f.write("Generated: " + datetime.now().strftime("%Y-%m-%d %H:%M") + "\n")
+            f.write("=" * 60 + "\n\n")
+            f.write(final_report if final_report else "No report generated.")
+            f.write("\n\n" + "=" * 60 + "\n")
+            f.write("VERIFIED SOURCE INDEX\n" + "=" * 60 + "\n")
+            f.write(source_index if isinstance(source_index, str) else "")
+    except Exception as e:
+        print(f"[ERROR] Could not save final report: {e}")
+
+    # Copy to clients/<client_name>/
+    clients_base = os.getenv("CLIENTS_DIR") or os.path.join(
+        os.getenv("AP_CLIENT_BASE", "").rsplit(os.sep, 1)[0] if os.getenv("AP_CLIENT_BASE") else "",
+        ""
+    )
+    # Resolve destination using AP_CLIENT_BASE if available
+    ap_base = os.getenv("AP_CLIENT_BASE", "")
+    if ap_base:
+        dest_dir = ap_base
+    else:
+        dest_dir = os.path.join("clients", client_name)
+    os.makedirs(dest_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+    dest_file = os.path.join(dest_dir, f"research_{timestamp}.txt")
+    try:
+        import shutil
+        shutil.copy2(filename, dest_file)
+        print(f"\n[SAVED] Output -> {dest_file}", flush=True)
+    except Exception as e:
+        print(f"[WARNING] Could not copy to client folder: {e}")
+
+    # Cleanup checkpoint
+    if len(checkpoint["completed_layers"]) >= 5:
+        try:
+            os.remove(get_checkpoint_path(safe_name))
+        except Exception:
+            pass
 
     return final_report
 

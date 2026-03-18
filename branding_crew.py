@@ -151,10 +151,24 @@ def create_tasks(brief):
         "Notes: " + notes
     )
 
+    # Build DNA context block if available
+    dna_fields = {}
+    for key in ("brand_archetype", "tone_axis", "visual_mood", "competitor_keywords",
+                "positioning_territory", "content_pillars"):
+        val = brief.get(key, "")
+        if val:
+            dna_fields[key] = val
+
+    dna_block = ""
+    if dna_fields:
+        dna_block = "\n\nBRAND DNA (pre-defined — use as foundation, not constraint):\n"
+        for k, v in dna_fields.items():
+            dna_block += f"  {k}: {v}\n"
+
     market_research_task = Task(
         description=(
             "Research the market landscape for the brand described in this brief:\n\n"
-            + brief_block + "\n\n"
+            + brief_block + dna_block + "\n\n"
             "Produce a detailed research report covering all four areas below. "
             "Minimum 600 words total.\n\n"
             "1. CULTURAL CONTEXT AND TRENDS\n"
@@ -187,7 +201,7 @@ def create_tasks(brief):
         description=(
             "Define the complete brand identity for " + brand_name + " using the market "
             "research produced in the previous task.\n\n"
-            "Brief context:\n" + brief_block + "\n\n"
+            "Brief context:\n" + brief_block + dna_block + "\n\n"
             "Produce a complete brand identity document covering all five areas below. "
             "Minimum 500 words total.\n\n"
             "1. BRAND ARCHETYPE + MYTHOLOGY\n"
@@ -222,7 +236,7 @@ def create_tasks(brief):
     visual_identity_task = Task(
         description=(
             "Design the complete visual identity system for " + brand_name + ".\n\n"
-            "Brief context:\n" + brief_block + "\n\n"
+            "Brief context:\n" + brief_block + dna_block + "\n\n"
             "Use the brand archetype, personality, and strategy from previous tasks to "
             "ground every decision. Minimum 400 words total.\n\n"
             "1. COLOR PALETTE\n"
@@ -289,11 +303,39 @@ def create_tasks(brief):
         )
     )
 
+    critique_task = Task(
+        description=(
+            "Review all previous outputs for " + brand_name + " and identify weaknesses.\n\n"
+            "You have the market research, brand identity, visual identity, and GTM strategy "
+            "from the previous tasks in your context.\n\n"
+            "Find and document:\n\n"
+            "1. GENERIC CLAIMS — any statement that could apply to any brand in this category. "
+            "Cite the exact claim and why it is generic.\n\n"
+            "2. CONTRADICTIONS — where two sections say inconsistent things about the brand's "
+            "personality, positioning, or direction. Cite both passages.\n\n"
+            "3. POSITIONING OVERLAP — where this brand's positioning overlaps significantly "
+            "with a named competitor's territory. Be specific about which competitor and which claim.\n\n"
+            "4. UNSUPPORTED CLAIMS — important strategic claims with no evidence or reasoning. "
+            "List each with the section it appears in.\n\n"
+            "For each issue found: state the problem, quote the relevant text, and write "
+            "a specific correction or improvement.\n\n"
+            "End with a VERDICT: STRONG / NEEDS REVISION / MAJOR ISSUES — and 2-3 sentences "
+            "on the overall quality of the strategy package."
+        ),
+        agent=brand_strategist,
+        expected_output=(
+            "A critique report with 4 sections: Generic Claims, Contradictions, "
+            "Positioning Overlap, Unsupported Claims. Each with specific quotes and corrections. "
+            "Ends with a VERDICT."
+        )
+    )
+
     compile_task = Task(
         description=(
             "Compile all outputs into the final Brand Strategy Document for "
             + brand_name.upper() + ".\n\n"
-            "You have the outputs of all 4 previous tasks in your context. "
+            "You have the outputs of all 5 previous tasks in your context "
+            "(market research, brand identity, visual identity, GTM strategy, and critique). "
             "Assemble them into a single, structured, client-ready document. "
             "Do NOT summarise or shorten any section — include everything as delivered. "
             "Do NOT stop before completing the full document.\n\n"
@@ -327,6 +369,7 @@ def create_tasks(brief):
         brand_strategy_task,
         visual_identity_task,
         launch_strategy_task,
+        critique_task,
         compile_task,
     ]
 
@@ -338,7 +381,8 @@ TASK_NAMES = [
     "2_brand_strategy",
     "3_visual_identity",
     "4_launch_strategy",
-    "5_compiled_document",
+    "5_critique",
+    "6_compiled_document",
 ]
 
 def get_branding_folder(safe_name):
@@ -413,18 +457,6 @@ def assemble_full_document(safe_name, checkpoint):
             except Exception:
                 pass
     return "\n".join(sections)
-
-
-# AGENT ALIASES (for run_crew.py compatibility)
-cultural_researcher   = market_researcher
-competitor_analyst    = market_researcher
-archetype_agent       = brand_strategist
-strategy_agent        = brand_strategist
-visual_identity_agent = visual_director
-positioning_agent     = launch_strategist
-gtm_agent             = launch_strategist
-swot_agent            = launch_strategist
-critic_agent          = document_compiler
 
 
 # CREW

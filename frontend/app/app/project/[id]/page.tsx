@@ -24,11 +24,11 @@ interface IntakeState {
 }
 
 const DEPTS = [
-  { id: "research",  name: "Intelligence", icon: "◎", color: "#4f8ef0", bg: "#eef4ff", eta: "3–5 min",   cost: 120 },
-  { id: "branding",  name: "Identity",     icon: "◈", color: "#e8a020", bg: "#fff8ee", eta: "10–15 min", cost: 350 },
-  { id: "social",    name: "Presence",     icon: "◉", color: "#9b5de5", bg: "#f6f0ff", eta: "10–15 min", cost: 350 },
-  { id: "ads",       name: "Growth",       icon: "◆", color: "#f15b50", bg: "#fff1f0", eta: "8–12 min",  cost: 400 },
-  { id: "proposal",  name: "Proposal",     icon: "◇", color: "#2daa6e", bg: "#edfaf4", eta: "5–8 min",   cost: 180 },
+  { id: "research",  name: "Research",    icon: "◎", color: "#4f8ef0", bg: "#eef4ff", eta: "3–5 min",   cost: 120 },
+  { id: "branding",  name: "Identity",    icon: "◈", color: "#e8a020", bg: "#fff8ee", eta: "10–15 min", cost: 350 },
+  { id: "social",    name: "Social Media", icon: "◉", color: "#9b5de5", bg: "#f6f0ff", eta: "10–15 min", cost: 350 },
+  { id: "ads",       name: "Growth",      icon: "◆", color: "#f15b50", bg: "#fff1f0", eta: "8–12 min",  cost: 400 },
+  { id: "proposal",  name: "Decks",       icon: "◇", color: "#2daa6e", bg: "#edfaf4", eta: "5–8 min",   cost: 180 },
 ];
 
 const DEPT_QUESTIONS: Record<string, Array<{ key: string; question: string; required?: boolean }>> = {
@@ -195,13 +195,13 @@ function buildCommentary(lines: string[], dept: string): Commentary {
     mark(["proposal writer", "draft"],               "Drafted proposal narrative");
     mark(["pricing", "package"],                     "Built pricing & packages");
     mark(["critic", "review"],                       "Reviewed and refined");
-    mark(["[saved]"],                                "Proposal complete");
+    mark(["[saved]"],                                "Decks complete");
 
     const recent = lines.slice(-10).join(" ").toLowerCase();
     if (recent.includes("pricing"))   return { done, now: "Building pricing structure..." };
     if (recent.includes("critic"))    return { done, now: "Reviewing and refining..." };
-    if (recent.includes("draft"))     return { done, now: "Drafting the proposal..." };
-    return { done, now: done.length ? "Writing your proposal..." : "Starting proposal crew..." };
+    if (recent.includes("draft"))     return { done, now: "Drafting the deck..." };
+    return { done, now: done.length ? "Writing your deck..." : "Starting decks crew..." };
   }
 
   return { done: [], now: "Agents working..." };
@@ -540,6 +540,7 @@ export default function ProjectChatPage() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef  = useRef<HTMLTextAreaElement>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -710,6 +711,12 @@ export default function ProjectChatPage() {
   const activeDept = deptInfo(selDept);
   const isActive   = deploying || !!intake;
 
+  function getDeptStatus(deptId: string): "DONE" | "RUNNING" | "READY" {
+    if (messages.some(m => m.kind === "result" && m.deliverable.crew === deptId)) return "DONE";
+    if (deploying && selDept === deptId) return "RUNNING";
+    return "READY";
+  }
+
   return (
     <div style={{ height: "calc(100vh - 57px)", display: "flex", flexDirection: "column", background: "#f7f4ef" }}>
 
@@ -722,8 +729,23 @@ export default function ProjectChatPage() {
           <span style={{ color: "#ddd8d0" }}>/</span>
           <span style={{ fontSize: 13, fontWeight: 600, color: "#1c1812", fontFamily: "Playfair Display, serif" }}>{project?.name ?? "Loading..."}</span>
         </div>
-        <Link href="/app/credits" style={{ fontSize: 11, fontWeight: 600, color: "#b0a090", textDecoration: "none" }}>Credits</Link>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <button
+            onClick={() => setSidebarOpen(o => !o)}
+            title={sidebarOpen ? "Hide departments" : "Show departments"}
+            style={{ fontSize: 11, fontWeight: 600, color: "#b0a090", background: "none", border: "1px solid #e8e0d5", borderRadius: 6, padding: "0.3rem 0.65rem", cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "#c8bfb2")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "#e8e0d5")}
+          >{sidebarOpen ? "◧ Hide" : "◨ Depts"}</button>
+          <Link href="/app/credits" style={{ fontSize: 11, fontWeight: 600, color: "#b0a090", textDecoration: "none" }}>Credits</Link>
+        </div>
       </div>
+
+      {/* Main content row: messages + sidebar */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+
+      {/* Left: messages + bottom bar */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
       {/* Messages */}
       <div style={{ flex: 1, overflowY: "auto", padding: "1.75rem 1.5rem" }}>
@@ -732,7 +754,7 @@ export default function ProjectChatPage() {
           {messages.length === 0 && (
             <div style={{ textAlign: "center", paddingTop: "5rem" }}>
               <p style={{ fontFamily: "Playfair Display, serif", fontSize: 24, color: "#c8bfb2", fontStyle: "italic" }}>Ready to run.</p>
-              <p style={{ fontSize: 12, color: "#c8bfb2", marginTop: "0.5rem" }}>Pick a department below and hit Deploy.</p>
+              <p style={{ fontSize: 12, color: "#c8bfb2", marginTop: "0.5rem" }}>Select a department from the sidebar and hit Deploy.</p>
             </div>
           )}
 
@@ -851,46 +873,104 @@ export default function ProjectChatPage() {
         </div>
       </div>
 
-      {/* Bottom bar */}
-      <div style={{ flexShrink: 0, padding: "0.85rem 1.5rem", borderTop: "1px solid #ece6dc", background: "#fff" }}>
-        <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.6rem", alignItems: "center" }}>
-            {DEPTS.map(d => (
-              <button key={d.id} onClick={() => !isActive && setSelDept(d.id)}
-                style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.28rem 0.7rem", borderRadius: 20, fontSize: 11, fontWeight: 600, border: `1.5px solid ${selDept === d.id ? d.color : "#e8e0d5"}`, background: selDept === d.id ? d.bg : "#fff", color: selDept === d.id ? d.color : "#b0a090", cursor: isActive ? "default" : "pointer", transition: "all 0.12s", opacity: isActive ? 0.55 : 1 }}>
-                <span>{d.icon}</span><span>{d.name}</span>
-              </button>
-            ))}
-            <button onClick={() => !isActive && startIntake(selDept)} disabled={isActive}
-              style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.35rem 1.1rem", borderRadius: 20, fontSize: 11, fontWeight: 700, background: isActive ? "#e8e0d5" : activeDept.color, color: isActive ? "#b0a090" : "#fff", border: "none", cursor: isActive ? "not-allowed" : "pointer", boxShadow: isActive ? "none" : `0 4px 14px ${activeDept.color}40`, transition: "all 0.15s" }}>
-              {deploying
-                ? <><span style={{ width: 10, height: 10, border: "2px solid #b0a09060", borderTopColor: "#b0a090", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} /> Running</>
-                : intake ? `Q${intake.idx + 1}/${intake.questions.length} answering...`
-                : <>{activeDept.icon} Deploy {activeDept.name}</>
-              }
-            </button>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
-            <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
-              placeholder={intake ? `Your answer...` : "Ask AP anything about your project..."}
-              rows={1}
-              style={{ flex: 1, background: intake ? "#faf6ff" : "#faf8f5", border: `1.5px solid ${intake ? "#9b5de580" : "#e8e0d5"}`, borderRadius: 10, padding: "0.75rem 1rem", fontSize: 13, color: "#1c1812", outline: "none", resize: "none", lineHeight: 1.6, fontFamily: "Inter, sans-serif", transition: "border-color 0.15s", maxHeight: 100, overflow: "auto" }}
-              onFocus={e => (e.currentTarget.style.borderColor = intake ? "#9b5de5" : "#4f8ef0")}
-              onBlur={e  => (e.currentTarget.style.borderColor = intake ? "#9b5de550" : "#e8e0d5")}
-            />
-            <button onClick={() => handleSend()}
-              style={{ padding: "0.75rem 1rem", background: (input.trim() || (intake && !intake.questions[intake.idx]?.required)) ? (intake ? "#9b5de5" : "#4f8ef0") : "#e8e0d5", border: "none", borderRadius: 10, color: "#fff", fontSize: 14, cursor: "pointer", flexShrink: 0, transition: "all 0.15s", boxShadow: input.trim() ? "0 4px 14px rgba(0,0,0,0.12)" : "none" }}>→</button>
-          </div>
-
-          {intake && (
-            <p style={{ fontSize: 11, color: "#9b5de5", marginTop: "0.45rem", opacity: 0.85 }}>
-              Question {intake.idx + 1} of {intake.questions.length}
-              {!intake.questions[intake.idx]?.required && " · Optional — press Enter to skip"}
-            </p>
-          )}
+      {/* Bottom bar — textarea + send only */}
+      <div style={{ flexShrink: 0, padding: "0.75rem 1.5rem 1rem", borderTop: "1px solid #ece6dc", background: "#fff" }}>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem" }}>
+          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
+            placeholder={intake ? `Your answer...` : "Ask AP anything about your project..."}
+            rows={1}
+            style={{ flex: 1, background: intake ? "#faf6ff" : "#faf8f5", border: `1.5px solid ${intake ? "#9b5de580" : "#e8e0d5"}`, borderRadius: 10, padding: "0.75rem 1rem", fontSize: 13, color: "#1c1812", outline: "none", resize: "none", lineHeight: 1.6, fontFamily: "Inter, sans-serif", transition: "border-color 0.15s", maxHeight: 100, overflow: "auto" }}
+            onFocus={e => (e.currentTarget.style.borderColor = intake ? "#9b5de5" : activeDept.color)}
+            onBlur={e  => (e.currentTarget.style.borderColor = intake ? "#9b5de550" : "#e8e0d5")}
+          />
+          <button onClick={() => handleSend()}
+            style={{ padding: "0.75rem 1rem", background: (input.trim() || (intake && !intake.questions[intake.idx]?.required)) ? (intake ? "#9b5de5" : activeDept.color) : "#e8e0d5", border: "none", borderRadius: 10, color: "#fff", fontSize: 14, cursor: "pointer", flexShrink: 0, transition: "all 0.15s", boxShadow: input.trim() ? "0 4px 14px rgba(0,0,0,0.12)" : "none" }}>→</button>
         </div>
+
+        {intake && (
+          <p style={{ fontSize: 11, color: "#9b5de5", marginTop: "0.45rem", opacity: 0.85 }}>
+            Question {intake.idx + 1} of {intake.questions.length}
+            {!intake.questions[intake.idx]?.required && " · Optional — press Enter to skip"}
+          </p>
+        )}
       </div>
+
+      </div>{/* end left column */}
+
+      {/* Right Sidebar — Department modules */}
+      {sidebarOpen && (
+        <div style={{ width: 220, flexShrink: 0, borderLeft: "1px solid #ece6dc", background: "#fff", display: "flex", flexDirection: "column", overflowY: "auto" }}>
+          <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid #ece6dc", flexShrink: 0 }}>
+            <p style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", color: "#b0a090" }}>Departments</p>
+          </div>
+          {DEPTS.map(d => {
+            const status = getDeptStatus(d.id);
+            const isSelected = selDept === d.id;
+            const statusColor = status === "DONE" ? "#2daa6e" : status === "RUNNING" ? d.color : "#b0a090";
+            const statusBg    = status === "DONE" ? "#edfaf4" : status === "RUNNING" ? d.color + "15" : "#f7f4ef";
+            return (
+              <div key={d.id}
+                onClick={() => !isActive && setSelDept(d.id)}
+                style={{
+                  padding: "0.85rem 1rem",
+                  borderBottom: "1px solid #f0ece5",
+                  borderLeft: `3px solid ${isSelected ? d.color : "transparent"}`,
+                  background: isSelected ? d.color + "07" : "transparent",
+                  cursor: isActive ? "default" : "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {/* Icon + name */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem" }}>
+                  <span style={{ fontSize: 15, color: d.color }}>{d.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: isSelected ? d.color : "#1c1812", flex: 1 }}>{d.name}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.05em", color: statusColor, background: statusBg, padding: "0.12rem 0.4rem", borderRadius: 4 }}>
+                    {status === "RUNNING" ? (
+                      <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: "50%", border: `1.5px solid ${d.color}50`, borderTopColor: d.color, animation: "spin 0.8s linear infinite", display: "inline-block" }} />
+                        LIVE
+                      </span>
+                    ) : status}
+                  </span>
+                </div>
+
+                {/* Cost + ETA */}
+                <div style={{ display: "flex", gap: "0.35rem", marginBottom: isSelected ? "0.65rem" : 0 }}>
+                  <span style={{ fontSize: 10, color: d.color, background: d.bg, borderRadius: 4, padding: "0.1rem 0.45rem", fontWeight: 600 }}>{d.cost} cr</span>
+                  <span style={{ fontSize: 10, color: "#b0a090", background: "#f7f4ef", borderRadius: 4, padding: "0.1rem 0.45rem" }}>~{d.eta}</span>
+                </div>
+
+                {/* Deploy button — only shown for selected, non-running dept */}
+                {isSelected && status !== "RUNNING" && (
+                  <button
+                    onClick={e => { e.stopPropagation(); startIntake(d.id); }}
+                    disabled={isActive}
+                    style={{
+                      width: "100%", padding: "0.45rem 0", borderRadius: 8,
+                      background: isActive ? "#e8e0d5" : d.color,
+                      color: isActive ? "#b0a090" : "#fff",
+                      border: "none", fontSize: 11, fontWeight: 700,
+                      cursor: isActive ? "not-allowed" : "pointer",
+                      transition: "all 0.15s",
+                      boxShadow: isActive ? "none" : `0 3px 10px ${d.color}40`,
+                      display: "flex", alignItems: "center", justifyContent: "center", gap: "0.3rem",
+                    }}
+                  >
+                    {intake
+                      ? `Q${intake.idx + 1}/${intake.questions.length} answering...`
+                      : status === "DONE"
+                      ? `↺ Re-run ${d.name}`
+                      : `Deploy ${d.name} →`
+                    }
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      </div>{/* end main content row */}
 
       {viewer && <DeliverableViewer d={viewer} projectId={id} onClose={() => setViewer(null)} />}
 

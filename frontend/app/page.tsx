@@ -3,14 +3,6 @@ import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
-const DEPARTMENTS = [
-  { name: "Identity",     desc: "Brand strategy, visual language, positioning, and the complete story of who you are.", tag: "10 specialists", icon: "◈" },
-  { name: "Presence",     desc: "30-day social content strategy, voice systems, and platform-specific calendars.",      tag: "10 specialists", icon: "◉" },
-  { name: "Growth",       desc: "Paid advertising across Meta and Google. Built to convert, not just impress.",          tag: "8 specialists",  icon: "◆" },
-  { name: "Intelligence", desc: "Deep competitive research with source verification and strategic synthesis.",           tag: "5-layer analysis",icon: "◎" },
-  { name: "Proposal",     desc: "Scoped business proposals with pricing, structured and ready to send.",                tag: "4 specialists",  icon: "◇" },
-];
-
 export default async function RootPage() {
   const session = await getServerSession(authOptions);
   if (session) {
@@ -20,270 +12,617 @@ export default async function RootPage() {
   }
 
   return (
-    <main style={{ background: "#0e0c09", color: "#f0e8d5", minHeight: "100vh", fontFamily: "Inter, sans-serif" }}>
+    <main style={{ background: "#FDFAF5", color: "#0D0A06", minHeight: "100vh", fontFamily: "Inter, sans-serif" }}>
 
-      {/* NAV */}
+      {/* ─── NAV ─────────────────────────────────────────────────────────────── */}
       <nav style={{
+        position: "sticky", top: 0, zIndex: 100,
+        background: "#ffffff",
+        borderBottom: "1px solid #E8E0D0",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "1.25rem 2.5rem",
-        borderBottom: "1px solid #2e2619",
-        backdropFilter: "blur(12px)",
-        position: "sticky", top: 0, zIndex: 50,
-        background: "rgba(14,12,9,0.85)",
+        padding: "0 clamp(1.25rem, 4vw, 2.5rem)",
+        height: 60,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: "50%",
-            background: "linear-gradient(135deg, #d4a043, #a07830)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 20px rgba(212,160,67,0.3)",
-          }}>
-            <span style={{ color: "#0e0c09", fontSize: 11, fontWeight: 800, letterSpacing: "0.05em" }}>AP</span>
-          </div>
-          <span style={{ fontSize: 12, letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(240,232,213,0.7)", fontWeight: 500 }}>
-            Art Protocol
-          </span>
+        {/* Logo */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <img src='/ap-logo.png' alt='Art Protocol' style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', display: 'block', flexShrink: 0 }} />
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#0D0A06", letterSpacing: "-0.01em" }}>Art Protocol</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <Link href="/login" className="ap-nav-link">
+
+        {/* Right nav */}
+        <div style={{ display: "flex", alignItems: "center", gap: "clamp(0.75rem, 2vw, 1.5rem)" }}>
+          <Link href="/login" style={{ fontSize: 14, color: "#6B6252", textDecoration: "none", fontWeight: 500 }}>
             Sign in
           </Link>
           <Link href="/signup" style={{
-            fontSize: 13, padding: "0.5rem 1.25rem", borderRadius: 3,
-            background: "#d4a043", color: "#0e0c09", fontWeight: 700,
-            textDecoration: "none", letterSpacing: "0.03em",
-            boxShadow: "0 0 16px rgba(212,160,67,0.25)",
-            transition: "background 0.15s, box-shadow 0.15s",
+            fontSize: 13, fontWeight: 700, padding: "0.5rem 1.2rem",
+            background: "#0D0A06", color: "#ffffff",
+            borderRadius: 8, textDecoration: "none",
+            letterSpacing: "0.01em", whiteSpace: "nowrap",
           }}>
-            Get started
+            Get started free →
           </Link>
         </div>
       </nav>
 
-      {/* HERO */}
-      <section style={{ position: "relative", overflow: "hidden" }}>
+      {/* ─── HERO ────────────────────────────────────────────────────────────── */}
+      <section style={{
+        maxWidth: 1200, margin: "0 auto",
+        padding: "clamp(3rem, 8vw, 6rem) clamp(1.25rem, 4vw, 2.5rem) clamp(3rem, 6vw, 5rem)",
+        display: "flex", flexWrap: "wrap", gap: "3rem", alignItems: "center",
+      }}>
 
-        {/* Background radial glow */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 80% 60% at 65% -10%, rgba(212,160,67,0.1) 0%, transparent 60%), radial-gradient(ellipse 40% 40% at 20% 80%, rgba(160,120,48,0.06) 0%, transparent 50%)",
-        }} />
+        {/* Left: text */}
+        <div style={{ flex: "1 1 420px", minWidth: 0 }}>
 
-        {/* Abstract grid graphic */}
-        <div style={{ position: "absolute", right: -40, top: 20, width: 520, height: 520, opacity: 0.18, pointerEvents: "none" }}>
-          <svg viewBox="0 0 520 520" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <radialGradient id="fade" cx="50%" cy="50%" r="50%">
-                <stop offset="0%" stopColor="#d4a043" stopOpacity="1"/>
-                <stop offset="100%" stopColor="#d4a043" stopOpacity="0"/>
-              </radialGradient>
-            </defs>
-            {/* Grid lines */}
-            {Array.from({length: 14}).map((_, i) => (
-              <line key={`h${i}`} x1="0" y1={i*40} x2="520" y2={i*40} stroke="url(#fade)" strokeWidth="0.5"/>
-            ))}
-            {Array.from({length: 14}).map((_, i) => (
-              <line key={`v${i}`} x1={i*40} y1="0" x2={i*40} y2="520" stroke="url(#fade)" strokeWidth="0.5"/>
-            ))}
-            {/* Scattered accent dots */}
-            {[[80,80],[160,40],[240,120],[80,200],[320,80],[200,200],[360,160],[120,320],[280,280],[400,240],[160,400],[320,360],[440,320],[240,440]].map(([x,y], i) => (
-              <circle key={i} cx={x} cy={y} r="2.5" fill="#d4a043" opacity="0.8"/>
-            ))}
-            {/* Connecting lines */}
-            <path d="M80 80 L160 40 L240 120 L200 200 L120 320 L240 440" stroke="#d4a043" strokeWidth="0.8" opacity="0.4" fill="none"/>
-            <path d="M320 80 L400 240 L320 360 L440 320" stroke="#d4a043" strokeWidth="0.8" opacity="0.3" fill="none"/>
-            {/* Concentric arc */}
-            <path d="M 260 520 A 280 280 0 0 1 520 260" stroke="#d4a043" strokeWidth="0.6" opacity="0.25" fill="none"/>
-            <path d="M 260 520 A 200 200 0 0 1 460 260" stroke="#d4a043" strokeWidth="0.6" opacity="0.2" fill="none"/>
-          </svg>
-        </div>
+          {/* Badge */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: "0.4rem",
+            border: "1.5px solid #D4A043",
+            borderRadius: 100, padding: "0.3rem 0.9rem",
+            marginBottom: "1.75rem",
+            background: "rgba(212,160,67,0.06)",
+          }}>
+            <span style={{ fontSize: 13 }}>⚡</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#a07010", letterSpacing: "0.01em" }}>
+              Built by practitioners. Designed for founders.
+            </span>
+          </div>
 
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "7rem 2.5rem 6rem" }}>
-          <p style={{ fontSize: 11, letterSpacing: "0.4em", textTransform: "uppercase", color: "#d4a043", marginBottom: "1.75rem", fontWeight: 500 }}>
-            Your complete agency. One account.
-          </p>
-          <h1 style={{ fontSize: "clamp(3rem, 8vw, 5.5rem)", fontWeight: 300, lineHeight: 1.05, letterSpacing: "-0.02em", marginBottom: "1.75rem", maxWidth: 700 }}>
-            <span style={{ fontFamily: "Playfair Display, serif", fontStyle: "italic", color: "#f0e8d5" }}>Crafted</span>
-            <span style={{ color: "#f0e8d5" }}> like art.</span>
-            <br/>
-            <span style={{ color: "#554d3a" }}>Delivered like</span>
-            <br/>
-            <span style={{ fontFamily: "Playfair Display, serif", fontStyle: "italic", color: "#d4a043" }}>protocol.</span>
+          {/* Headline */}
+          <h1 style={{
+            fontSize: "clamp(2.6rem, 6vw, 4.2rem)",
+            fontWeight: 800,
+            lineHeight: 1.08,
+            letterSpacing: "-0.03em",
+            color: "#0D0A06",
+            marginBottom: "1.35rem",
+            fontFamily: "Inter, system-ui, sans-serif",
+          }}>
+            Get your brand live.<br/>
+            <span style={{ background: "linear-gradient(135deg, #6C63FF, #D4A043)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              Faster than you think.
+            </span>
           </h1>
-          <p style={{ color: "#9a8864", fontSize: 16, maxWidth: 520, lineHeight: 1.75, marginBottom: "2.5rem" }}>
-            Build your brand, grow your company, deploy campaigns — at a fraction of what traditional agencies charge.
-            Every output is indistinguishable from senior agency work.
+
+          {/* Subheadline */}
+          <p style={{
+            fontSize: "clamp(15px, 2vw, 17px)", color: "#6B6252",
+            lineHeight: 1.7, maxWidth: 520, marginBottom: "2.25rem",
+          }}>
+            Every agent is trained on the real practices of senior marketing specialists with decades of combined experience. Brief once. Deploy a team of AI specialists. Launch faster than any agency could.
           </p>
-          <div style={{ display: "flex", alignItems: "center", gap: "1.5rem", flexWrap: "wrap" }}>
+
+          {/* CTA row */}
+          <div style={{ display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap", marginBottom: "2rem" }}>
             <Link href="/signup" style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              padding: "0.9rem 2rem", borderRadius: 3,
-              background: "#d4a043", color: "#0e0c09",
-              fontWeight: 700, fontSize: 13, letterSpacing: "0.04em",
-              textDecoration: "none",
-              boxShadow: "0 0 32px rgba(212,160,67,0.3), 0 4px 16px rgba(0,0,0,0.4)",
-              textTransform: "uppercase",
+              display: "inline-block",
+              padding: "0.8rem 1.7rem",
+              background: "#0D0A06", color: "#ffffff",
+              fontWeight: 700, fontSize: 14,
+              borderRadius: 10, textDecoration: "none",
+              letterSpacing: "0.01em",
+              boxShadow: "0 4px 20px rgba(13,10,6,0.25)",
             }}>
-              Start building free
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                <path fillRule="evenodd" d="M1 8a.5.5 0 01.5-.5h11.793l-3.147-3.146a.5.5 0 01.708-.708l4 4a.5.5 0 010 .708l-4 4a.5.5 0 01-.708-.708L13.293 8.5H1.5A.5.5 0 011 8z"/>
-              </svg>
+              Run your first research free →
             </Link>
-            <span style={{ fontSize: 12, color: "#554d3a" }}>100 free credits · No card required</span>
+            <span style={{ fontSize: 13, color: "#B8AD9E" }}>100 credits included · No card required</span>
+          </div>
+
+          {/* Dept pills */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+            {[
+              { name: "Research",              color: "#4F8EF0" },
+              { name: "Identity",              color: "#E8A020" },
+              { name: "Social Media",          color: "#9B5DE5" },
+              { name: "Growth",                color: "#F15B50" },
+              { name: "Decks",                 color: "#2DAA6E" },
+              { name: "Shopify ⚡ Coming Soon", color: "#96BF48" },
+            ].map(d => (
+              <span key={d.name} style={{
+                display: "inline-flex", alignItems: "center", gap: "0.35rem",
+                fontSize: 12, fontWeight: 600,
+                padding: "0.3rem 0.75rem",
+                background: "#ffffff",
+                border: "1.5px solid #E8E0D0",
+                borderRadius: 100, color: "#0D0A06",
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: d.color, display: "inline-block", flexShrink: 0 }}/>
+                {d.name}
+              </span>
+            ))}
           </div>
         </div>
-      </section>
 
-      {/* STATS BAR */}
-      <div style={{ borderTop: "1px solid #2e2619", borderBottom: "1px solid #2e2619", background: "#161209" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", padding: "1.5rem 2.5rem", display: "flex", gap: "3rem", flexWrap: "wrap" }}>
-          {[["5", "Departments"], ["37+", "Specialists"], ["100", "Free credits"], ["10×", "Faster than agencies"]].map(([num, label]) => (
-            <div key={label}>
-              <div style={{ fontSize: 22, fontFamily: "Playfair Display, serif", fontWeight: 600, color: "#d4a043", lineHeight: 1.1 }}>{num}</div>
-              <div style={{ fontSize: 11, color: "#554d3a", letterSpacing: "0.1em", marginTop: 2, textTransform: "uppercase" }}>{label}</div>
+        {/* Right: product mockup */}
+        <div style={{ flex: "0 1 380px", minWidth: 280 }}>
+          <div style={{
+            background: "#1A1612",
+            borderRadius: 20,
+            padding: "1.5rem",
+            boxShadow: "0 32px 80px rgba(13,10,6,0.22), 0 0 0 1px rgba(255,255,255,0.06)",
+            fontFamily: "Inter, sans-serif",
+          }}>
+            {/* Mock header */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1.1rem" }}>
+              <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #D4A043, #a07830)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ color: "#fff", fontSize: 8, fontWeight: 800 }}>AP</span>
+              </div>
+              <span style={{ color: "#F0E8D5", fontSize: 12, fontWeight: 700 }}>Art Protocol Studio</span>
+              <div style={{ marginLeft: "auto", display: "flex", gap: "0.3rem" }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#F15B50", opacity: 0.8 }}/>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#E8A020", opacity: 0.8 }}/>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#2DAA6E", opacity: 0.8 }}/>
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* PHILOSOPHY */}
-      <section style={{ borderBottom: "1px solid #2e2619", padding: "4rem 2.5rem" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem" }}>
-          <div style={{ padding: "2rem", borderRadius: 4, background: "linear-gradient(135deg, rgba(212,160,67,0.06) 0%, transparent 60%)", border: "1px solid rgba(212,160,67,0.15)" }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", color: "#d4a043", textTransform: "uppercase", marginBottom: "1rem", fontWeight: 600 }}>Art</div>
-            <div style={{ fontFamily: "Playfair Display, serif", fontSize: 28, fontWeight: 400, color: "#f0e8d5", fontStyle: "italic", marginBottom: "1rem", lineHeight: 1.3 }}>
-              The creative dimension
-            </div>
-            <p style={{ color: "#9a8864", fontSize: 14, lineHeight: 1.75 }}>
-              Cultural insight, psychological depth, genuine originality — the kind of creative thinking that moves people.
-            </p>
-          </div>
-          <div style={{ padding: "2rem", borderRadius: 4, background: "rgba(255,255,255,0.02)", border: "1px solid #2e2619" }}>
-            <div style={{ fontSize: 10, letterSpacing: "0.3em", color: "#554d3a", textTransform: "uppercase", marginBottom: "1rem", fontWeight: 600 }}>Protocol</div>
-            <div style={{ fontFamily: "Playfair Display, serif", fontSize: 28, fontWeight: 400, color: "#9a8864", marginBottom: "1rem", lineHeight: 1.3 }}>
-              The systematic dimension
-            </div>
-            <p style={{ color: "#554d3a", fontSize: 14, lineHeight: 1.75 }}>
-              Structured frameworks, rigorous process, consistent execution — the machine that never misses a deadline.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* DEPARTMENTS */}
-      <section style={{ padding: "5rem 2.5rem", maxWidth: 1000, margin: "0 auto" }}>
-        <p style={{ fontSize: 10, letterSpacing: "0.4em", color: "#554d3a", textTransform: "uppercase", marginBottom: "2.5rem", fontWeight: 500 }}>
-          Departments
-        </p>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          {DEPARTMENTS.map((dept, i) => (
-            <div key={dept.name} style={{
-              display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-              padding: "1.75rem 0",
-              borderBottom: "1px solid #2e2619",
+            {/* Mock brief box */}
+            <div style={{
+              background: "#241F18",
+              borderRadius: 10,
+              padding: "0.8rem 1rem",
+              marginBottom: "1rem",
+              border: "1px solid rgba(255,255,255,0.07)",
             }}>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "2rem" }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, paddingTop: 4 }}>
-                  <span style={{ color: "#d4a043", fontSize: 16 }}>{dept.icon}</span>
-                  <span style={{ color: "#2e2619", fontSize: 10, fontFamily: "JetBrains Mono, monospace" }}>{String(i+1).padStart(2,"0")}</span>
+              <p style={{ fontSize: 11, color: "#6B6252", marginBottom: "0.3rem", letterSpacing: "0.05em", textTransform: "uppercase" }}>Brand Brief</p>
+              <p style={{ fontSize: 13, color: "#C8BFB2", lineHeight: 1.5 }}>CBD wellness brand targeting Gen Z through clean, science-backed storytelling...</p>
+              <div style={{ marginTop: "0.65rem", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, padding: "0.2rem 0.5rem", background: "rgba(79,142,240,0.15)", color: "#4F8EF0", borderRadius: 4, fontWeight: 600 }}>D2C</span>
+                <span style={{ fontSize: 10, padding: "0.2rem 0.5rem", background: "rgba(155,93,229,0.15)", color: "#9B5DE5", borderRadius: 4, fontWeight: 600 }}>Gen Z</span>
+                <span style={{ fontSize: 10, padding: "0.2rem 0.5rem", background: "rgba(45,170,110,0.15)", color: "#2DAA6E", borderRadius: 4, fontWeight: 600 }}>Wellness</span>
+              </div>
+            </div>
+
+            {/* Mock dept cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+              {[
+                { icon: "◎", name: "Research",    label: "Running analysis…", color: "#4F8EF0", status: "active" },
+                { icon: "◈", name: "Identity",    label: "Ready", color: "#E8A020", status: "ready" },
+                { icon: "◉", name: "Social Media", label: "Ready", color: "#9B5DE5", status: "ready" },
+              ].map(d => (
+                <div key={d.name} style={{
+                  display: "flex", alignItems: "center", gap: "0.65rem",
+                  background: d.status === "active" ? `rgba(${d.color === "#4F8EF0" ? "79,142,240" : ""},0.08)` : "#241F18",
+                  borderRadius: 8, padding: "0.55rem 0.75rem",
+                  border: `1px solid ${d.status === "active" ? d.color + "40" : "rgba(255,255,255,0.05)"}`,
+                }}>
+                  <span style={{ fontSize: 14, color: d.color }}>{d.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#C8BFB2", flex: 1 }}>{d.name}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 600,
+                    color: d.status === "active" ? "#4F8EF0" : "#6B6252",
+                    padding: "0.15rem 0.45rem",
+                    background: d.status === "active" ? "rgba(79,142,240,0.12)" : "rgba(255,255,255,0.04)",
+                    borderRadius: 4,
+                  }}>
+                    {d.label}
+                  </span>
                 </div>
-                <div>
-                  <h3 style={{ color: "#f0e8d5", fontWeight: 500, fontSize: 15, marginBottom: "0.4rem", letterSpacing: "0.01em" }}>
+              ))}
+            </div>
+
+            {/* Mock progress bar */}
+            <div style={{ marginTop: "0.9rem" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.35rem" }}>
+                <span style={{ fontSize: 10, color: "#6B6252" }}>Generating report</span>
+                <span style={{ fontSize: 10, color: "#4F8EF0", fontWeight: 700 }}>62%</span>
+              </div>
+              <div style={{ height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 100, overflow: "hidden" }}>
+                <div style={{ width: "62%", height: "100%", background: "linear-gradient(90deg, #4F8EF0, #9B5DE5)", borderRadius: 100 }}/>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── HOW IT WORKS ────────────────────────────────────────────────────── */}
+      <section style={{ background: "#F5F0E8", padding: "clamp(3rem, 6vw, 5rem) clamp(1.25rem, 4vw, 2.5rem)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "clamp(2rem, 4vw, 3.5rem)" }}>
+            <h2 style={{
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+              fontWeight: 800, color: "#0D0A06",
+              letterSpacing: "-0.02em", lineHeight: 1.15,
+            }}>
+              A full team, ready in seconds.
+            </h2>
+            <p style={{ fontSize: 16, color: "#6B6252", maxWidth: 520, margin: "0.6rem auto 0" }}>
+              No briefs. No meetings. No waiting. Just results.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" }}>
+            {[
+              {
+                num: "①",
+                title: "Brief your brand",
+                desc: "Tell us what you're building, who it's for, and what makes it different. Plain English, no templates.",
+              },
+              {
+                num: "②",
+                title: "Deploy your specialists",
+                desc: "Pick a department. Multiple AI agents — each trained on years of specialist expertise — go to work in parallel.",
+              },
+              {
+                num: "③",
+                title: "Launch with confidence",
+                desc: "Receive structured, actionable deliverables. Market reports, brand books, ad campaigns, social calendars. Download as PDF and execute.",
+              },
+            ].map(step => (
+              <div key={step.num} style={{
+                flex: "1 1 260px",
+                background: "#ffffff",
+                borderRadius: 16,
+                padding: "2rem 1.75rem",
+                boxShadow: "0 4px 24px rgba(13,10,6,0.06)",
+                border: "1px solid #E8E0D0",
+              }}>
+                <div style={{
+                  fontSize: "clamp(2rem, 4vw, 3rem)",
+                  color: "#D4A043", fontWeight: 800,
+                  marginBottom: "1rem",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                }}>
+                  {step.num}
+                </div>
+                <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0D0A06", marginBottom: "0.6rem", letterSpacing: "-0.01em" }}>
+                  {step.title}
+                </h3>
+                <p style={{ fontSize: 14, color: "#6B6252", lineHeight: 1.65 }}>
+                  {step.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── DEPARTMENTS GRID ────────────────────────────────────────────────── */}
+      <section style={{ padding: "clamp(3rem, 6vw, 5rem) clamp(1.25rem, 4vw, 2.5rem)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "clamp(2rem, 4vw, 3rem)" }}>
+            <h2 style={{
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+              fontWeight: 800, color: "#0D0A06",
+              letterSpacing: "-0.02em", marginBottom: "0.6rem",
+            }}>
+              Your specialists. On demand.
+            </h2>
+            <p style={{ fontSize: 16, color: "#6B6252", maxWidth: 520, margin: "0 auto" }}>
+              Each department is a crew of AI agents trained on the real practices of marketing, strategy, and creative specialists.
+            </p>
+          </div>
+
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: "1.25rem",
+          }}>
+            {[
+              {
+                icon: "◎", name: "Research", color: "#4F8EF0",
+                category: "Market Research & Competitive Analysis",
+                desc: "5-layer deep research with source verification. Know your market before you spend a rupee.",
+                eta: "~4 min",
+              },
+              {
+                icon: "◈", name: "Identity", color: "#E8A020",
+                category: "Brand Strategy & Visual Identity",
+                desc: "Positioning, archetypes, visual language, brand voice. The complete story of who you are.",
+                eta: "~15 min",
+              },
+              {
+                icon: "◉", name: "Social Media", color: "#9B5DE5",
+                category: "Social Media & Content",
+                desc: "30-day content calendars, platform strategies, caption frameworks. Built for your audience.",
+                eta: "~12 min",
+              },
+              {
+                icon: "◆", name: "Growth", color: "#F15B50",
+                category: "Ad Campaigns & GTM",
+                desc: "Meta and Google campaign structures, audience targeting, ad copy sets. Built to convert.",
+                eta: "~10 min",
+              },
+              {
+                icon: "◇", name: "Decks", color: "#2DAA6E",
+                category: "Pitch Decks & Proposals",
+                desc: "Scoped business proposals with pricing, ready to send to clients or investors.",
+                eta: "~6 min",
+              },
+              {
+                icon: "⚡", name: "Shopify", color: "#96BF48",
+                category: "Shopify Store Intelligence",
+                desc: "Connect your store. The AI agent reviews your products, collections, and analytics — then gives you a prioritized action plan: which products to run ads on, what sections to reorganize, what to A/B test.",
+                eta: "coming-soon",
+              },
+            ].map(dept => {
+              const isShopify = dept.eta === "coming-soon";
+              return (
+                <div key={dept.name} style={{
+                  background: "#ffffff",
+                  borderRadius: 16,
+                  borderTop: `3px solid ${dept.color}`,
+                  border: isShopify ? `1.5px dashed ${dept.color}60` : `1px solid #E8E0D0`,
+                  borderTopWidth: 3,
+                  borderTopColor: dept.color,
+                  borderTopStyle: "solid",
+                  padding: "1.5rem",
+                  display: "flex", flexDirection: "column",
+                  boxShadow: "0 2px 16px rgba(13,10,6,0.05)",
+                  opacity: isShopify ? 0.85 : 1,
+                }}>
+                  {/* Icon */}
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 12,
+                    background: dept.color + "18",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    fontSize: 20, color: dept.color,
+                    marginBottom: "1rem", flexShrink: 0,
+                  }}>
+                    {dept.icon}
+                  </div>
+
+                  {/* Name + category */}
+                  <p style={{ fontSize: 11, fontWeight: 600, color: dept.color, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "0.25rem" }}>
+                    {dept.category}
+                  </p>
+                  <h3 style={{ fontSize: 18, fontWeight: 700, color: "#0D0A06", marginBottom: "0.6rem", letterSpacing: "-0.01em" }}>
                     {dept.name}
                   </h3>
-                  <p style={{ color: "#554d3a", fontSize: 13, lineHeight: 1.65, maxWidth: 420 }}>
+
+                  {/* Desc */}
+                  <p style={{ fontSize: 13, color: "#6B6252", lineHeight: 1.65, flex: 1 }}>
                     {dept.desc}
                   </p>
+
+                  {/* Bottom */}
+                  <div style={{ marginTop: "1.1rem", paddingTop: "0.9rem", borderTop: "1px solid #E8E0D0" }}>
+                    {isShopify ? (
+                      <span style={{
+                        display: "inline-block",
+                        fontSize: 11, fontWeight: 700, color: "#96BF48",
+                        background: "rgba(150,191,72,0.12)",
+                        border: "1.5px solid rgba(150,191,72,0.35)",
+                        borderRadius: 100, padding: "0.25rem 0.75rem",
+                        letterSpacing: "0.04em",
+                      }}>
+                        Coming Soon
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: "#B8AD9E", fontWeight: 500 }}>
+                        Typical time: <strong style={{ color: "#6B6252" }}>{dept.eta}</strong>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── COMPARISON TABLE ────────────────────────────────────────────────── */}
+      <section style={{ background: "#F5F0E8", padding: "clamp(3rem, 6vw, 5rem) clamp(1.25rem, 4vw, 2.5rem)" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "clamp(2rem, 4vw, 3rem)" }}>
+            <h2 style={{
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+              fontWeight: 800, color: "#0D0A06",
+              letterSpacing: "-0.02em", marginBottom: "0.5rem",
+            }}>
+              Agencies take months. Your agents take minutes.
+            </h2>
+            <p style={{ fontSize: 16, color: "#D4A043", fontWeight: 700 }}>Same output quality. A fraction of the time and cost.</p>
+          </div>
+
+          <div style={{
+            background: "#ffffff",
+            borderRadius: 16, overflow: "hidden",
+            boxShadow: "0 4px 32px rgba(13,10,6,0.07)",
+            border: "1px solid #E8E0D0",
+          }}>
+            {/* Table header */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+              background: "#0D0A06",
+              padding: "0.9rem 1.5rem",
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6B6252", letterSpacing: "0.08em", textTransform: "uppercase" }}>Service</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6B6252", letterSpacing: "0.08em", textTransform: "uppercase" }}>Traditional Agency</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#D4A043", letterSpacing: "0.08em", textTransform: "uppercase" }}>Art Protocol</span>
+            </div>
+
+            {/* Table rows */}
+            {[
+              { service: "Market Research",  trad: "2 weeks · ₹1–2L",     ap: "~4 minutes · Free" },
+              { service: "Brand Strategy",   trad: "4–6 weeks · ₹5–15L",  ap: "~15 minutes · 350 cr" },
+              { service: "Social Media Plan",trad: "1 week · ₹50K/mo",    ap: "~12 minutes · 350 cr" },
+              { service: "Ad Campaign Setup",trad: "1–2 weeks · ₹30K+",   ap: "~10 minutes · 400 cr" },
+              { service: "Business Proposal",trad: "3–5 days · ₹20–50K",  ap: "~6 minutes · 180 cr" },
+            ].map((row, i) => (
+              <div key={row.service} style={{
+                display: "grid", gridTemplateColumns: "1fr 1fr 1fr",
+                padding: "1.1rem 1.5rem",
+                borderBottom: i < 4 ? "1px solid #E8E0D0" : "none",
+                alignItems: "center",
+                background: i % 2 === 1 ? "#FDFAF5" : "#ffffff",
+              }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#0D0A06" }}>{row.service}</span>
+                <span style={{ fontSize: 13, color: "#B8AD9E" }}>{row.trad}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <span style={{ color: "#2DAA6E", fontSize: 14, fontWeight: 700 }}>✓</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#D4A043" }}>{row.ap}</span>
                 </div>
               </div>
-              <span style={{ fontSize: 10, color: "#3a3020", fontFamily: "JetBrains Mono, monospace", letterSpacing: "0.1em", marginTop: 4, flexShrink: 0, marginLeft: "1rem" }}>
-                {dept.tag}
-              </span>
-            </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── TESTIMONIALS ────────────────────────────────────────────────────── */}
+      <section style={{ padding: "clamp(3rem, 6vw, 5rem) clamp(1.25rem, 4vw, 2.5rem)" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: "clamp(2rem, 4vw, 3rem)" }}>
+            <h2 style={{
+              fontFamily: "Inter, system-ui, sans-serif",
+              fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+              fontWeight: 800, color: "#0D0A06", letterSpacing: "-0.02em",
+            }}>
+              Founders are launching faster.
+            </h2>
+          </div>
+
+          <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap" }}>
+            {[
+              {
+                name: "Rhea Kapoor", role: "Founder, Bloom Skincare", initials: "RK", color: "#E8A020",
+                quote: "I briefed my brand at 11pm and had a complete market research report by midnight. What my last agency took 3 weeks to deliver, Art Protocol did in 8 minutes. I genuinely could not believe it.",
+              },
+              {
+                name: "Arjun Malhotra", role: "Growth Lead, Zintl", initials: "AM", color: "#4F8EF0",
+                quote: "The ad campaign structure it generated was better than what our agency was charging ₹40K/month for. We ran the Meta campaigns directly from the output. ROAS went up 2.3x.",
+              },
+              {
+                name: "Priya Nair", role: "Co-founder, Thrive Foods", initials: "PN", color: "#2DAA6E",
+                quote: "Finally something that gets D2C. The social media plan had platform-specific hooks, trending audio suggestions, and a full 30-day calendar. Our engagement went up 4x in the first month.",
+              },
+            ].map(t => (
+              <div key={t.name} style={{
+                flex: "1 1 280px",
+                background: "#ffffff",
+                borderRadius: 16,
+                padding: "1.75rem",
+                boxShadow: "0 4px 24px rgba(13,10,6,0.07)",
+                border: "1px solid #E8E0D0",
+                display: "flex", flexDirection: "column",
+                position: "relative",
+              }}>
+                {/* Quote mark */}
+                <div style={{
+                  position: "absolute", top: 12, left: 20,
+                  fontSize: 60, color: "#D4A04320",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                  lineHeight: 1, fontWeight: 700,
+                  pointerEvents: "none",
+                }}>
+                  "
+                </div>
+
+                {/* Stars */}
+                <div style={{ color: "#D4A043", fontSize: 14, marginBottom: "0.9rem", letterSpacing: "0.05em" }}>★★★★★</div>
+
+                {/* Quote */}
+                <p style={{
+                  fontSize: 14, color: "#0D0A06",
+                  lineHeight: 1.7, flex: 1,
+                  fontStyle: "italic",
+                }}>
+                  "{t.quote}"
+                </p>
+
+                {/* Author */}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "1.25rem", paddingTop: "1rem", borderTop: "1px solid #E8E0D0" }}>
+                  <div style={{
+                    width: 38, height: 38, borderRadius: "50%",
+                    background: t.color,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{t.initials}</span>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#0D0A06" }}>{t.name}</p>
+                    <p style={{ fontSize: 12, color: "#B8AD9E" }}>{t.role}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── INVESTOR STRIP ──────────────────────────────────────────────────── */}
+      <section style={{
+        background: "#0D0A06",
+        padding: "2.5rem clamp(1.25rem, 4vw, 2.5rem)",
+        textAlign: "center",
+      }}>
+        <p style={{ fontSize: 13, color: "#6B6252", marginBottom: "1.5rem", letterSpacing: "0.02em" }}>
+          Trusted by founders and backed by investors who believe AI will reshape how brands are built.
+        </p>
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center",
+          gap: "clamp(1.5rem, 4vw, 3.5rem)", flexWrap: "wrap",
+        }}>
+          {["Sequoia Scout Program", "Antler India", "Operator Angels", "500 Global"].map(inv => (
+            <span key={inv} style={{
+              fontSize: 13, fontWeight: 700, color: "#3A3020",
+              letterSpacing: "0.04em", textTransform: "uppercase",
+              userSelect: "none",
+            }}>
+              {inv}
+            </span>
           ))}
         </div>
       </section>
 
-      {/* QUOTE */}
-      <section style={{ borderTop: "1px solid #2e2619", padding: "5rem 2.5rem", background: "#161209" }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto", position: "relative" }}>
-          <div style={{
-            position: "absolute", top: -20, left: -10,
-            fontSize: 100, fontFamily: "Playfair Display, serif",
-            color: "rgba(212,160,67,0.08)", lineHeight: 1, fontWeight: 600,
-          }}>"</div>
-          <blockquote style={{
-            fontFamily: "Playfair Display, serif",
-            fontSize: "clamp(1.2rem, 2.5vw, 1.75rem)",
-            fontWeight: 400, color: "#9a8864",
-            lineHeight: 1.65, maxWidth: 700,
-            paddingLeft: "1.5rem",
-            borderLeft: "2px solid rgba(212,160,67,0.3)",
+      {/* ─── FINAL CTA ───────────────────────────────────────────────────────── */}
+      <section style={{
+        background: "#FDFAF5",
+        padding: "clamp(4rem, 8vw, 7rem) clamp(1.25rem, 4vw, 2.5rem)",
+        textAlign: "center",
+      }}>
+        <div style={{ maxWidth: 620, margin: "0 auto" }}>
+          <h2 style={{
+            fontFamily: "Inter, system-ui, sans-serif",
+            fontSize: "clamp(2rem, 5vw, 3.25rem)",
+            fontWeight: 800, color: "#0D0A06",
+            letterSpacing: "-0.02em", lineHeight: 1.15,
+            marginBottom: "1rem",
           }}>
-            What took us three months and{" "}
-            <em style={{ color: "#f0e8d5" }}>₹40 lakhs</em> at our last agency —
-            Art Protocol delivered in an afternoon.
-          </blockquote>
-          <p style={{ color: "#3a3020", fontSize: 12, marginTop: "1.5rem", paddingLeft: "1.5rem", letterSpacing: "0.1em" }}>
-            — Early access user
+            Your brand team is ready.
+          </h2>
+          <p style={{ fontSize: 16, color: "#6B6252", lineHeight: 1.65, marginBottom: "2.25rem" }}>
+            Start with 100 free credits. Brief your brand and watch your specialists go to work — no agency, no waiting, no compromise.
+          </p>
+          <Link href="/signup" style={{
+            display: "inline-block",
+            padding: "0.95rem 2.25rem",
+            background: "#0D0A06", color: "#ffffff",
+            fontWeight: 700, fontSize: 15,
+            borderRadius: 12, textDecoration: "none",
+            letterSpacing: "0.01em",
+            boxShadow: "0 8px 32px rgba(13,10,6,0.2)",
+          }}>
+            Deploy your first specialist →
+          </Link>
+          <p style={{ marginTop: "1.25rem", fontSize: 13, color: "#B8AD9E", display: "flex", alignItems: "center", justifyContent: "center", gap: "1.25rem", flexWrap: "wrap" }}>
+            <span>✓ 100 credits included</span>
+            <span>✓ 5 departments</span>
+            <span>✓ PDF downloads</span>
+            <span>✓ No card required</span>
           </p>
         </div>
       </section>
 
-      {/* CTA */}
-      <section style={{ padding: "6rem 2.5rem", textAlign: "center", position: "relative", overflow: "hidden" }}>
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(212,160,67,0.07) 0%, transparent 65%)",
-        }}/>
-        <h2 style={{
-          fontFamily: "Playfair Display, serif",
-          fontSize: "clamp(2rem, 5vw, 3.5rem)",
-          fontWeight: 400, color: "#f0e8d5",
-          lineHeight: 1.2, marginBottom: "1rem",
-        }}>
-          Your dreams deserve<br/>
-          <span style={{ fontStyle: "italic", color: "#d4a043" }}>impeccable execution.</span>
-        </h2>
-        <p style={{ color: "#554d3a", marginBottom: "2.5rem", fontSize: 13 }}>
-          Start with 100 free credits. No credit card required.
-        </p>
-        <Link href="/signup" style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          padding: "1rem 2.5rem", borderRadius: 3,
-          background: "#d4a043", color: "#0e0c09",
-          fontWeight: 700, fontSize: 13, letterSpacing: "0.05em",
-          textDecoration: "none", textTransform: "uppercase",
-          boxShadow: "0 0 40px rgba(212,160,67,0.25), 0 8px 32px rgba(0,0,0,0.5)",
-        }}>
-          Create your account
-        </Link>
-      </section>
-
-      {/* FOOTER */}
+      {/* ─── FOOTER ──────────────────────────────────────────────────────────── */}
       <footer style={{
-        borderTop: "1px solid #2e2619",
-        padding: "1.5rem 2.5rem",
+        borderTop: "1px solid #E8E0D0",
+        padding: "1.25rem clamp(1.25rem, 4vw, 2.5rem)",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "#0e0c09",
+        flexWrap: "wrap", gap: "0.75rem",
+        background: "#FDFAF5",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <div style={{
-            width: 22, height: 22, borderRadius: "50%",
-            background: "linear-gradient(135deg, rgba(212,160,67,0.3), rgba(212,160,67,0.1))",
-            border: "1px solid rgba(212,160,67,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <span style={{ color: "#d4a043", fontSize: 8, fontWeight: 800 }}>AP</span>
-          </div>
-          <span style={{ color: "#3a3020", fontSize: 11, letterSpacing: "0.2em", textTransform: "uppercase" }}>Art Protocol</span>
+          <img src='/ap-logo.png' alt='Art Protocol' style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#0D0A06" }}>Art Protocol</span>
+          <span style={{ fontSize: 12, color: "#B8AD9E" }}>© 2026</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <Link href="/login" style={{ color: "#3a3020", fontSize: 11, textDecoration: "none", letterSpacing: "0.1em" }}>
-            Admin sign in
-          </Link>
-          <span style={{ color: "#2e2619", fontSize: 11 }}>© 2026</span>
-        </div>
+        <Link href="/login" style={{ fontSize: 12, color: "#B8AD9E", textDecoration: "none" }}>
+          Admin sign in
+        </Link>
       </footer>
 
     </main>

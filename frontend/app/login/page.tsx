@@ -50,6 +50,9 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#0a0a0a] px-4">
       {/* Logo / wordmark */}
       <div className="mb-10 text-center">
+        <div className="flex justify-center mb-3">
+          <img src='/ap-logo.png' alt='Art Protocol' style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+        </div>
         <div className="text-2xl font-semibold tracking-[0.2em] text-white uppercase mb-1">
           Art Protocol
         </div>

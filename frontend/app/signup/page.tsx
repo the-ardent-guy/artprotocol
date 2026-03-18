@@ -57,14 +57,7 @@ export default function SignupPage() {
         position: "relative", zIndex: 1,
       }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
-          <div style={{
-            width: 32, height: 32, borderRadius: "50%",
-            background: "linear-gradient(135deg, #d4a043, #a07830)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 16px rgba(212,160,67,0.25)",
-          }}>
-            <span style={{ color: "#0e0c09", fontSize: 10, fontWeight: 800 }}>AP</span>
-          </div>
+          <img src='/ap-logo.png' alt='Art Protocol' style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
           <span style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(240,232,213,0.6)", fontWeight: 500 }}>
             Art Protocol
           </span>
@@ -79,19 +72,6 @@ export default function SignupPage() {
         flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
         justifyContent: "center", padding: "3rem 1.5rem", position: "relative", zIndex: 1,
       }}>
-
-        {/* Decorative AP mark */}
-        <div style={{
-          fontFamily: "Playfair Display, serif",
-          fontSize: 120, fontWeight: 600,
-          color: "rgba(212,160,67,0.04)",
-          position: "absolute",
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
-          pointerEvents: "none",
-          userSelect: "none",
-          letterSpacing: "-0.05em",
-        }}>AP</div>
 
         <div style={{ width: "100%", maxWidth: 400, position: "relative" }}>
           <div style={{ marginBottom: "2.5rem" }}>

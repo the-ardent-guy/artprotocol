@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { getToken, getStoredUser, clearAuth, apiFetch, APUser } from "@/lib/userAuth";
-import clsx from "clsx";
 
 const NAV = [
   { href: "/app",         label: "Studio" },
@@ -25,8 +24,8 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="w-5 h-5 border border-[#c9943a] border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex items-center justify-center" style={{ background: "#f7f4ef" }}>
+        <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "#d4a043", borderTopColor: "transparent" }} />
       </div>
     );
   }
@@ -38,32 +37,39 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
 
   const isLowCredits = user.credits < 120;
 
+  const firstName = (user.name || user.email || "").split(" ")[0];
+
   return (
-    <div className="min-h-screen bg-black flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ background: "#f7f4ef" }}>
 
       {/* Top nav */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[#111] shrink-0">
+      <header className="flex items-center justify-between px-6 shrink-0" style={{ background: "#fff", borderBottom: "1px solid #ece6dc", height: 57 }}>
         <div className="flex items-center gap-6">
           <Link href="/app" className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center">
-              <span className="text-black text-[10px] font-bold">AP</span>
-            </div>
-            <span className="text-xs tracking-[0.2em] uppercase text-white/50 hidden sm:block">
+            <img src='/ap-logo.png' alt='Art Protocol' style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+            <span className="text-xs tracking-[0.2em] uppercase hidden sm:block" style={{ color: "#1c1812", fontWeight: 600 }}>
               Art Protocol
             </span>
           </Link>
-          <nav className="flex items-center gap-1">
+          <nav className="flex items-center">
             {NAV.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + "/") && item.href !== "/app";
               const exactActive = item.href === "/app" ? pathname === "/app" || pathname.startsWith("/app/project") : pathname === item.href;
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={clsx(
-                    "px-3 py-1.5 text-xs rounded-sm transition-colors",
-                    exactActive ? "text-white bg-[#111]" : "text-[#555] hover:text-[#999]"
-                  )}
+                  style={{
+                    padding: "0 0.75rem",
+                    height: 57,
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: 13,
+                    fontWeight: exactActive ? 600 : 400,
+                    color: exactActive ? "#1c1812" : "#a89880",
+                    textDecoration: "none",
+                    borderBottom: exactActive ? "2px solid #d4a043" : "2px solid transparent",
+                    transition: "color 0.15s, border-color 0.15s",
+                  }}
                 >
                   {item.label}
                 </Link>
@@ -72,29 +78,35 @@ export default function UserLayout({ children }: { children: React.ReactNode }) 
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* Credits */}
+        <div className="flex items-center gap-3">
+          {/* Credits pill */}
           <Link
             href="/app/credits"
-            className={clsx(
-              "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-sm border transition-colors",
-              isLowCredits
-                ? "border-[#c9943a]/40 text-[#c9943a] hover:bg-[#c9943a]/5"
-                : "border-[#1a1a1a] text-[#555] hover:text-[#999] hover:border-[#2a2a2a]"
-            )}
+            style={{
+              display: "flex", alignItems: "center", gap: "0.4rem",
+              fontSize: 12, fontWeight: 700,
+              padding: "0.35rem 0.85rem", borderRadius: 20,
+              textDecoration: "none",
+              background: isLowCredits ? "#f15b50" : "#d4a043",
+              color: "#fff",
+              boxShadow: isLowCredits ? "0 2px 8px rgba(241,91,80,0.35)" : "0 2px 8px rgba(212,160,67,0.3)",
+              transition: "opacity 0.15s",
+            }}
           >
-            <span className={clsx("w-1.5 h-1.5 rounded-full", isLowCredits ? "bg-[#c9943a]" : "bg-[#333]")} />
+            <span style={{ fontSize: 10 }}>◆</span>
             {Math.floor(user.credits)} cr
           </Link>
 
-          {/* User name */}
-          <span className="text-xs text-[#333] hidden md:block">
-            {user.name || user.email}
+          {/* User first name */}
+          <span className="text-xs hidden md:block" style={{ color: "#b0a090", fontWeight: 500 }}>
+            {firstName}
           </span>
 
           <button
             onClick={handleSignOut}
-            className="text-xs text-[#333] hover:text-[#777] transition-colors"
+            style={{ fontSize: 12, color: "#b0a090", background: "none", border: "none", cursor: "pointer", fontWeight: 500, transition: "color 0.15s" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#1c1812")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#b0a090")}
           >
             Sign out
           </button>

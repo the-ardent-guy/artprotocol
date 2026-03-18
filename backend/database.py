@@ -6,6 +6,7 @@ Handles public users, credits, transactions, and jobs.
 import sqlite3
 import os
 import uuid
+import json
 from datetime import datetime
 from typing import Optional, Dict, Any
 
@@ -55,6 +56,14 @@ def init_db():
         is_trial     INTEGER DEFAULT 0,
         created_at   TEXT DEFAULT (datetime('now')),
         FOREIGN KEY (user_id) REFERENCES users(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS brand_dna (
+        project_id       TEXT PRIMARY KEY,
+        raw_fields       TEXT,
+        enriched_fields  TEXT,
+        created_at       TEXT DEFAULT (datetime('now')),
+        updated_at       TEXT DEFAULT (datetime('now'))
     );
     """)
     conn.commit()
@@ -196,6 +205,55 @@ def update_job(job_id: str, status: str, credits_used: float = 0, output_path: s
             (status, credits_used, output_path, job_id)
         )
         conn.commit()
+    finally:
+        conn.close()
+
+
+# ─── BRAND DNA OPERATIONS ────────────────────────────────────────────────────
+
+def save_brand_dna(project_id: str, raw_fields_json: str, enriched_fields_json: str = None) -> Dict:
+    """Upsert brand DNA for a project. Returns the saved record."""
+    conn = get_db()
+    now = datetime.utcnow().isoformat()
+    try:
+        existing = conn.execute(
+            "SELECT project_id FROM brand_dna WHERE project_id = ?", (project_id,)
+        ).fetchone()
+        if existing:
+            conn.execute(
+                "UPDATE brand_dna SET raw_fields = ?, enriched_fields = ?, updated_at = ? WHERE project_id = ?",
+                (raw_fields_json, enriched_fields_json, now, project_id)
+            )
+        else:
+            conn.execute(
+                "INSERT INTO brand_dna (project_id, raw_fields, enriched_fields, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (project_id, raw_fields_json, enriched_fields_json, now, now)
+            )
+        conn.commit()
+        return get_brand_dna(project_id)
+    finally:
+        conn.close()
+
+
+def get_brand_dna(project_id: str) -> Optional[Dict]:
+    """Return brand DNA dict with parsed JSON fields, or None if not found."""
+    conn = get_db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM brand_dna WHERE project_id = ?", (project_id,)
+        ).fetchone()
+        if not row:
+            return None
+        result = dict(row)
+        try:
+            result["raw_fields"] = json.loads(result["raw_fields"]) if result["raw_fields"] else None
+        except (json.JSONDecodeError, TypeError):
+            result["raw_fields"] = None
+        try:
+            result["enriched_fields"] = json.loads(result["enriched_fields"]) if result["enriched_fields"] else None
+        except (json.JSONDecodeError, TypeError):
+            result["enriched_fields"] = None
+        return result
     finally:
         conn.close()
 

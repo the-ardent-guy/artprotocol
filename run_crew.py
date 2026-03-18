@@ -60,15 +60,10 @@ def run_branding_headless(client_name, brief):
         create_tasks,
         get_branding_folder,
         save_checkpoint,
-        cultural_researcher,
-        competitor_analyst,
-        archetype_agent,
-        strategy_agent,
-        visual_identity_agent,
-        positioning_agent,
-        gtm_agent,
-        swot_agent,
-        critic_agent,
+        market_researcher,
+        brand_strategist,
+        visual_director,
+        launch_strategist,
         document_compiler,
     )
     from crewai import Crew, Process
@@ -83,15 +78,10 @@ def run_branding_headless(client_name, brief):
 
     crew = Crew(
         agents=[
-            cultural_researcher,
-            competitor_analyst,
-            archetype_agent,
-            strategy_agent,
-            visual_identity_agent,
-            positioning_agent,
-            gtm_agent,
-            swot_agent,
-            critic_agent,
+            market_researcher,
+            brand_strategist,
+            visual_director,
+            launch_strategist,
             document_compiler,
         ],
         tasks=tasks,
@@ -103,9 +93,77 @@ def run_branding_headless(client_name, brief):
     print(f"\n>> Starting Branding Crew for {brief['brand_name']}...", flush=True)
     result = crew.kickoff()
 
-    save_to_client_folder(client_name, "brand_document", result)
+    output_path = save_to_client_folder(client_name, "brand_document", result)
+
+    # Parse .txt output and save parallel .json file
+    _save_branding_json(output_path, result)
+
     print("\n[BRANDING CREW COMPLETE]", flush=True)
     return result
+
+
+def _save_branding_json(txt_path: str, result) -> None:
+    """Parse branding .txt output and save a parallel .json file with key blocks."""
+    if not txt_path or not os.path.exists(txt_path):
+        return
+
+    try:
+        with open(txt_path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except Exception:
+        return
+
+    result_str = str(result)
+    combined = content + "\n" + result_str
+
+    # Section header patterns → JSON key
+    sections = {
+        "positioning_statement": [
+            "positioning statement", "positioning:", "for / who", "expanded format"
+        ],
+        "brand_archetype": [
+            "brand archetype", "archetype +", "archetype:"
+        ],
+        "voice_rules": [
+            "tone of voice", "tone:", "how the brand speaks", "voice guide"
+        ],
+        "visual_language": [
+            "visual identity", "color palette", "typography", "visual system"
+        ],
+        "taglines": [
+            "tagline", "hero tagline", "messaging framework", "key message"
+        ],
+        "gtm_strategy": [
+            "go-to-market", "gtm", "launch sequence", "channel strategy"
+        ],
+        "swot": [
+            "swot", "strengths", "weaknesses", "opportunities", "threats"
+        ],
+    }
+
+    extracted = {}
+    lines = combined.split("\n")
+
+    for i, line in enumerate(lines):
+        line_lower = line.lower().strip()
+        for key, patterns in sections.items():
+            if key in extracted:
+                continue
+            for pat in patterns:
+                if pat in line_lower and (line_lower.startswith("#") or line_lower.startswith("##") or line_lower.isupper() or ":" in line_lower):
+                    # Grab next 30 lines as the section content
+                    end = min(i + 30, len(lines))
+                    extracted[key] = "\n".join(lines[i:end]).strip()
+                    break
+
+    if extracted:
+        json_path = txt_path.replace(".txt", ".json")
+        try:
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(extracted, f, indent=2, ensure_ascii=False)
+            print(f"\n[SAVED] Brand JSON -> {json_path}", flush=True)
+        except Exception as e:
+            print(f"[WARNING] Could not save brand JSON: {e}", flush=True)
 
 
 def run_social_headless(client_name, brief, brand_document=None):
@@ -272,18 +330,13 @@ def run_research_headless(client_name, brief):
     print("RESEARCH - ART PROTOCOL (headless)", flush=True)
     print("=" * 60, flush=True)
 
-    from research import run as run_research
-    import builtins
+    from research import run_headless_direct
 
-    # Map all 8 brief fields from the conversational intake
-    name            = brief.get("brand_name", client_name)
-    what            = brief.get("what_it_is", brief.get("query", ""))
-    category        = brief.get("category", "")
-    location        = brief.get("location", "")
-    customer        = brief.get("customer", "")
-    problem_solved  = brief.get("problem_solved", brief.get("notes", ""))
-    competitors     = brief.get("competitors", "")
-    stage           = brief.get("stage", "new")
+    name       = brief.get("brand_name", client_name)
+    category   = brief.get("category", "")
+    location   = brief.get("location", "")
+    stage      = brief.get("stage", "new")
+    competitors = brief.get("competitors", "")
 
     print(f"  Brand:       {name}", flush=True)
     print(f"  Category:    {category}", flush=True)
@@ -291,42 +344,60 @@ def run_research_headless(client_name, brief):
     print(f"  Stage:       {stage}", flush=True)
     print(f"  Competitors: {competitors or 'not provided — will research'}", flush=True)
 
-    # research.py's get_client_brief() asks exactly 12 questions via input(),
-    # then load_checkpoint() may ask one more. Map all fields in order.
-    answers = iter([
-        name,                                    # 1. Brand name
-        what,                                    # 2. What is it exactly
-        category,                                # 3. Category
-        "",                                      # 4. Subcategory / niche (not collected)
-        location,                                # 5. Primary location
-        location,                                # 6. Target geography (use location as default)
-        customer,                                # 7. Who is the customer
-        problem_solved[:600] if problem_solved else "",  # 8. What problem does this solve
-        competitors,                             # 9. Three competitors
-        "",                                      # 10. Founder belief (not collected)
-        stage or "new",                          # 11. Stage
-        "",                                      # 12. What brand would never do (not collected)
-        "n",                                     # checkpoint: Resume? (always fresh)
-    ])
-    original_input = builtins.input
+    # Ensure research.py brief fields are fully mapped
+    research_brief = {
+        "brand_name":     name,
+        "what_it_is":     brief.get("what_it_is", brief.get("query", "")),
+        "category":       category,
+        "subcategory":    "",
+        "location":       location,
+        "target_geo":     location,
+        "customer":       brief.get("customer", ""),
+        "problem_solved": brief.get("problem_solved", brief.get("notes", "")),
+        "competitors":    competitors,
+        "founder_belief": "",
+        "stage":          stage or "new",
+        "never_do":       "",
+        # Pass through DNA fields if present
+        **{k: v for k, v in brief.items() if k in (
+            "brand_archetype", "tone_axis", "competitor_keywords",
+            "positioning_territory", "geo_tier", "visual_mood"
+        )},
+    }
 
-    def patched_input(prompt=""):
-        try:
-            answer = next(answers)
-            print(f"{prompt}{answer}", flush=True)
-            return answer
-        except StopIteration:
-            return ""
-
-    builtins.input = patched_input
-    try:
-        result = run_research()
-    finally:
-        builtins.input = original_input
-
-    save_to_client_folder(client_name, "research", result)
+    result = run_headless_direct(research_brief, client_name)
     print("\n[RESEARCH COMPLETE]", flush=True)
     return result
+
+
+def enrich_brief_with_dna(brief: dict, dna: dict) -> dict:
+    """Merge DNA fields into brief so all crew runners get full context."""
+    enriched = brief.copy()
+    # Raw DNA field mappings
+    enriched["brand_name"]       = dna.get("brand_name", brief.get("brand_name", ""))
+    enriched["category"]         = dna.get("category", brief.get("category", ""))
+    enriched["target_audience"]  = dna.get("audience", dna.get("target_audience", brief.get("target_audience", "")))
+    enriched["what_it_is"]       = dna.get("usp", dna.get("what_it_is", brief.get("what_it_is", "")))
+    enriched["stage"]            = dna.get("stage", brief.get("stage", ""))
+    # Enriched DNA fields
+    enriched["brand_archetype"]  = dna.get("brand_archetype", brief.get("brand_archetype", ""))
+    enriched["tone_axis"]        = dna.get("tone_axis", brief.get("tone_axis", ""))
+    enriched["visual_mood"]      = dna.get("visual_mood", brief.get("visual_mood", ""))
+    enriched["reference_brand"]  = dna.get("reference_brand", brief.get("reference_brand", ""))
+    enriched["positioning_territory"] = dna.get("positioning_territory", brief.get("positioning_territory", ""))
+    enriched["geo_tier"]         = dna.get("geo_tier", brief.get("geo_tier", ""))
+    # Arrays joined to comma-separated strings for crew prompt compatibility
+    content_pillars = dna.get("content_pillars", brief.get("content_pillars", []))
+    if isinstance(content_pillars, list):
+        enriched["content_pillars"] = ", ".join(content_pillars)
+    else:
+        enriched["content_pillars"] = content_pillars
+    competitor_keywords = dna.get("competitor_keywords", brief.get("competitor_keywords", []))
+    if isinstance(competitor_keywords, list):
+        enriched["competitor_keywords"] = ", ".join(competitor_keywords)
+    else:
+        enriched["competitor_keywords"] = competitor_keywords
+    return enriched
 
 
 def normalize_brief(brief: dict, client_name: str) -> dict:
@@ -378,6 +449,12 @@ def main():
         sys.exit(1)
 
     brief = normalize_brief(brief, args.client)
+
+    # DNA injection: if brief carries a _dna key, merge DNA fields into brief
+    if "_dna" in brief:
+        dna = brief.pop("_dna")
+        brief = enrich_brief_with_dna(brief, dna)
+        print(f"[DNA] Brand DNA injected into brief", flush=True)
 
     brand_document = None
     if args.brand_doc and os.path.exists(args.brand_doc):

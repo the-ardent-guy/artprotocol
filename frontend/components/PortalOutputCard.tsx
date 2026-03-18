@@ -105,6 +105,3 @@ export default function PortalOutputCard({ output, clientName }: Props) {
     </div>
   );
 }
-div>
-  );
-}

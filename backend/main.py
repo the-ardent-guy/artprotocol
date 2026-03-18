@@ -1057,6 +1057,92 @@ async def get_user_project(project_id: str, user: dict = Depends(get_current_use
     }
 
 
+class SaveDNARequest(BaseModel):
+    raw_fields: Dict[str, Any]
+
+# ─── ROUTES: BRAND DNA ────────────────────────────────────────────────────────
+
+@app.get("/me/projects/{project_id}/dna")
+async def get_project_dna(project_id: str, user: dict = Depends(get_current_user)):
+    """Return brand DNA for a project (raw + enriched fields)."""
+    dna = db.get_brand_dna(f"{user['id']}:{project_id}")
+    if not dna:
+        return {"raw_fields": None, "enriched_fields": None}
+    return {"raw_fields": dna["raw_fields"], "enriched_fields": dna["enriched_fields"]}
+
+
+@app.post("/me/projects/{project_id}/dna")
+async def save_project_dna(
+    project_id: str,
+    body: SaveDNARequest,
+    user: dict = Depends(get_current_user),
+):
+    """Save raw brand DNA fields for a project."""
+    dna_key = f"{user['id']}:{project_id}"
+    # Preserve existing enriched_fields if any
+    existing = db.get_brand_dna(dna_key)
+    enriched_json = None
+    if existing and existing.get("enriched_fields"):
+        enriched_json = json.dumps(existing["enriched_fields"])
+    saved = db.save_brand_dna(dna_key, json.dumps(body.raw_fields), enriched_json)
+    return {"raw_fields": saved["raw_fields"], "enriched_fields": saved["enriched_fields"]}
+
+
+@app.post("/me/projects/{project_id}/dna/enrich")
+async def enrich_project_dna(project_id: str, user: dict = Depends(get_current_user)):
+    """Use Claude to derive enriched brand DNA fields from raw_fields."""
+    if not ANTHROPIC_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
+
+    dna_key = f"{user['id']}:{project_id}"
+    dna = db.get_brand_dna(dna_key)
+    if not dna or not dna.get("raw_fields"):
+        raise HTTPException(status_code=400, detail="No raw DNA saved yet. POST to /dna first.")
+
+    import anthropic
+    ac = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+
+    raw_json = json.dumps(dna["raw_fields"], indent=2)
+    user_prompt = (
+        f"Here is a structured brand brief:\n\n{raw_json}\n\n"
+        "Derive the following fields and return them as a single JSON object:\n"
+        "- brand_archetype (string: the primary Jungian archetype)\n"
+        "- tone_axis (string: e.g. 'playful-serious', 'bold-refined')\n"
+        "- visual_mood (string: 1-2 sentence visual direction)\n"
+        "- content_pillars (array of exactly 3 strings)\n"
+        "- competitor_keywords (array of exactly 5 strings: key terms competitors own)\n"
+        "- positioning_territory (string: the unclaimed positioning space this brand can own)\n"
+        "- geo_tier (string: 'global', 'national', 'regional', or 'local')"
+    )
+
+    try:
+        response = ac.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=1000,
+            system=(
+                "You are a brand strategist. Given this structured brand brief, derive the following fields. "
+                "Return valid JSON only, no preamble, no explanation, no markdown code blocks. "
+                "Just the raw JSON object."
+            ),
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        enriched_text = response.content[0].text.strip()
+        # Strip markdown code fences if model adds them despite instruction
+        if enriched_text.startswith("```"):
+            enriched_text = enriched_text.split("```")[1]
+            if enriched_text.startswith("json"):
+                enriched_text = enriched_text[4:]
+            enriched_text = enriched_text.strip()
+        enriched = json.loads(enriched_text)
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=500, detail=f"Claude returned invalid JSON: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Enrichment failed: {e}")
+
+    saved = db.save_brand_dna(dna_key, json.dumps(dna["raw_fields"]), json.dumps(enriched))
+    return {"raw_fields": saved["raw_fields"], "enriched_fields": saved["enriched_fields"]}
+
+
 class UpdateBriefRequest(BaseModel):
     brief:   Optional[str] = None
     content: Optional[str] = None
@@ -1200,6 +1286,15 @@ async def user_run_crew(
         if os.path.exists(brief_path):
             with open(brief_path, "r", encoding="utf-8") as f:
                 brief_data = {"brief": f.read()}
+
+    # Inject Brand DNA if available
+    dna_key = f"{user['id']}:{body.project_id}"
+    dna = db.get_brand_dna(dna_key)
+    if dna and (dna.get("raw_fields") or dna.get("enriched_fields")):
+        brief_data["_dna"] = {
+            **(dna.get("raw_fields") or {}),
+            **(dna.get("enriched_fields") or {}),
+        }
 
     job_id = str(uuid.uuid4())[:8]
     jobs[job_id] = {"status": "running", "lines": [], "output_path": None, "is_trial": is_trial}
