@@ -1453,6 +1453,17 @@ async def verify_payment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── ROUTES: ADMIN / DEV UTILS ───────────────────────────────────────────────
+
+@app.post("/admin/clear-test-users")
+async def clear_test_users(x_admin_key: Optional[str] = Header(None)):
+    if x_admin_key != "clear-test-2026":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    print("[WARNING] clear-test-users endpoint called — all users deleted")
+    count = db.clear_all_users()
+    return {"deleted_users": count}
+
+
 # ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
