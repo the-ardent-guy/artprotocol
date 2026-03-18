@@ -581,7 +581,12 @@ export default function ProjectChatPage() {
         if (proj.brief) hist.push({ kind: "user", text: proj.brief });
         dels.forEach(d => hist.push({ kind: "result", deliverable: d }));
         if (hist.length) setMessages(hist);
-        if (searchParams.get("start") === "1" && dels.length === 0) {
+        if (searchParams.get("from") === "onboarding" && dels.length === 0) {
+          // Coming from DNA onboarding — skip intake, deploy directly using DNA
+          const dept = searchParams.get("dept") ?? "research";
+          setSelDept(dept);
+          setTimeout(() => startDeployFromDNA(dept, proj), 600);
+        } else if (searchParams.get("start") === "1" && dels.length === 0) {
           const dept = searchParams.get("dept") ?? "research";
           setSelDept(dept);
           setTimeout(() => startIntake(dept), 600);
@@ -613,6 +618,18 @@ export default function ProjectChatPage() {
       text: `**${d.icon} ${d.name}** — I'll need a few details before we start.\n\n${questions[0].question}`,
     });
     setTimeout(() => inputRef.current?.focus(), 120);
+  }
+
+  async function startDeployFromDNA(deptId: string, proj: Project) {
+    // Skip all intake — DNA was collected during onboarding. Deploy immediately.
+    const d = deptInfo(deptId);
+    addMsg({ kind: "user", text: proj.brief || proj.name });
+    addMsg({
+      kind: "assistant",
+      text: `Brand DNA loaded. Starting **${d.icon} ${d.name}** — estimated **~${d.eta}**.`,
+    });
+    // Pass empty answers — the backend will enrich from DNA
+    await startDeploy(deptId, {});
   }
 
   async function startDeploy(deptId: string, answers: Record<string, string>) {
