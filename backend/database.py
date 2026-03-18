@@ -272,5 +272,21 @@ def clear_all_users() -> int:
         conn.close()
 
 
+def clear_all_users() -> int:
+    """Delete all users and related data. For dev/test cleanup only."""
+    conn = get_db()
+    try:
+        row = conn.execute("SELECT COUNT(*) as n FROM users").fetchone()
+        count = row["n"] if row else 0
+        conn.execute("DELETE FROM credit_transactions")
+        conn.execute("DELETE FROM user_jobs")
+        conn.execute("DELETE FROM brand_dna")
+        conn.execute("DELETE FROM users")
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
 # Run on import
 init_db()
