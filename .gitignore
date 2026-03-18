@@ -59,3 +59,4 @@ Thumbs.db
 
 # Do not ignore these JS files
 !generate_proposal.js
+.vercel
