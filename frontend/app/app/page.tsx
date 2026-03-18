@@ -100,6 +100,7 @@ function ContinueBtn({
 export default function OnboardingPage() {
   const router = useRouter();
   const brandInputRef = useRef<HTMLInputElement>(null);
+  const whatIsItRef = useRef<HTMLTextAreaElement>(null);
   const uspInputRef = useRef<HTMLTextAreaElement>(null);
   const refBrandInputRef = useRef<HTMLInputElement>(null);
 
@@ -109,7 +110,8 @@ export default function OnboardingPage() {
   // Answer state
   const [brandName, setBrandName] = useState("");
   const [category, setCategory] = useState("");
-  const [audience, setAudience] = useState("");
+  const [audience, setAudience] = useState<string[]>([]);
+  const [whatIsIt, setWhatIsIt] = useState("");
   const [usp, setUsp] = useState("");
   const [stage, setStage] = useState("");
   const [priceBand, setPriceBand] = useState("");
@@ -131,15 +133,16 @@ export default function OnboardingPage() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (step === 0) brandInputRef.current?.focus();
-      else if (step === 3) uspInputRef.current?.focus();
-      else if (step === 6) refBrandInputRef.current?.focus();
+      else if (step === 2) whatIsItRef.current?.focus();
+      else if (step === 4) uspInputRef.current?.focus();
+      else if (step === 7) refBrandInputRef.current?.focus();
     }, 360);
     return () => clearTimeout(t);
   }, [step]);
 
   // Progress bar animation for screen 9
   useEffect(() => {
-    if (step !== 9) return;
+    if (step !== 10) return;
     setDnaProgress(0);
     const start = Date.now();
     const duration = 3000;
@@ -177,9 +180,15 @@ export default function OnboardingPage() {
     );
   }
 
+  function toggleAudience(a: string) {
+    setAudience((prev) =>
+      prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
+    );
+  }
+
   async function runOnboarding(finalService: string) {
     setAnimDir("forward");
-    setStep(9);
+    setStep(10);
     setLoading(true);
     setError("");
     setDnaProgress(0);
@@ -191,7 +200,7 @@ export default function OnboardingPage() {
       // a. Create project
       const project = await apiFetch<{ id: string }>("/me/projects", {
         method: "POST",
-        body: JSON.stringify({ name: brandName.trim(), brief: usp.trim() }),
+        body: JSON.stringify({ name: brandName.trim(), brief: whatIsIt.trim() || usp.trim() }),
       });
       const projectId = project.id;
 
@@ -200,8 +209,9 @@ export default function OnboardingPage() {
         method: "POST",
         body: JSON.stringify({
           brand_name: brandName.trim(),
+          what_is_it: whatIsIt.trim(),
           category,
-          audience,
+          audience: audience.join(", "),
           usp: usp.trim(),
           stage: mappedStage,
           price_band: priceBand,
@@ -229,7 +239,7 @@ export default function OnboardingPage() {
   }
 
   // ─── Shared styles ────────────────────────────────────────────────────────
-  const TOTAL_STEPS = 9;
+  const TOTAL_STEPS = 10;
 
   const screenStyle: React.CSSProperties = {
     animation: `${animDir === "forward" ? "slideIn" : "slideInLeft"} 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both`,
@@ -304,7 +314,7 @@ export default function OnboardingPage() {
         }}
       >
         {/* Progress bar — screens 1–8 */}
-        {step > 0 && step < 9 && (
+        {step > 0 && step < 10 && (
           <div
             style={{
               width: "100%",
@@ -443,7 +453,7 @@ export default function OnboardingPage() {
         {/* ── Screen 1: Q1 — What do you sell? ── */}
         {step === 1 && (
           <div key="s1" style={screenStyle}>
-            <p style={labelStyle}>Question 1 of 8</p>
+            <p style={labelStyle}>Question 1 of 9</p>
             <h2 style={questionStyle}>What do you sell?</h2>
             <div style={chipsWrap}>
               {["Physical product", "Digital product", "Service", "Marketplace"].map(
@@ -460,30 +470,55 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 2: Q2 — Who is it for? ── */}
+        {/* ── Screen 2: Q2 — What is it? ── */}
         {step === 2 && (
           <div key="s2" style={screenStyle}>
-            <p style={labelStyle}>Question 2 of 8</p>
-            <h2 style={questionStyle}>Who is it for?</h2>
-            <div style={chipsWrap}>
-              {["Gen Z (18-25)", "Millennials (26-38)", "Working professionals", "B2B"].map(
-                (opt) => (
-                  <Chip
-                    key={opt}
-                    label={opt}
-                    selected={audience === opt}
-                    onClick={() => chipSelectAndAdvance(setAudience, opt)}
-                  />
-                )
-              )}
+            <p style={labelStyle}>Question 2 of 9</p>
+            <h2 style={questionStyle}>Describe what you're building</h2>
+            <p style={{ fontSize: 13, color: "#a89880", marginBottom: "1.25rem", marginTop: "-0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>
+              One or two sentences. What does it do and who is it for?
+            </p>
+            <div style={{ width: "100%", maxWidth: 480 }}>
+              <textarea
+                ref={whatIsItRef}
+                value={whatIsIt}
+                onChange={(e) => { if (e.target.value.length <= 300) setWhatIsIt(e.target.value); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && whatIsIt.trim()) { e.preventDefault(); advance(); } }}
+                placeholder="e.g. A D2C skincare brand for Gen Z women who want effective, no-BS routines..."
+                rows={3}
+                style={{ width: "100%", background: "#fff", border: "2px solid #ece6dc", borderRadius: 14, padding: "1rem 1.25rem", fontSize: 14, color: "#1c1812", lineHeight: 1.7, resize: "none", outline: "none", fontFamily: "Inter, system-ui, sans-serif", boxSizing: "border-box", transition: "border-color 0.15s" }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
+              />
+              <div style={{ textAlign: "right", fontSize: 11, color: "#c8bfb2", marginTop: "0.35rem", fontFamily: "Inter, system-ui, sans-serif" }}>{whatIsIt.length}/300</div>
+              <ContinueBtn onClick={advance} disabled={!whatIsIt.trim()} />
             </div>
           </div>
         )}
 
-        {/* ── Screen 3: Q3 — USP ── */}
+        {/* ── Screen 3: Q3 — Who is it for? (multi-select) ── */}
         {step === 3 && (
           <div key="s3" style={screenStyle}>
-            <p style={labelStyle}>Question 3 of 8</p>
+            <p style={labelStyle}>Question 3 of 9</p>
+            <h2 style={questionStyle}>Who is it for?</h2>
+            <p style={{ fontSize: 13, color: "#a89880", marginBottom: "1.25rem", marginTop: "-0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>
+              Select all that apply.
+            </p>
+            <div style={chipsWrap}>
+              {["Gen Z (18-25)", "Millennials (26-38)", "Working professionals", "B2B", "Parents", "Students", "Senior professionals"].map(
+                (opt) => (
+                  <Chip key={opt} label={opt} selected={audience.includes(opt)} onClick={() => toggleAudience(opt)} />
+                )
+              )}
+            </div>
+            {audience.length > 0 && <ContinueBtn onClick={advance} />}
+          </div>
+        )}
+
+        {/* ── Screen 4: Q4 — USP ── */}
+        {step === 4 && (
+          <div key="s4" style={screenStyle}>
+            <p style={labelStyle}>Question 4 of 9</p>
             <h2 style={questionStyle}>What makes it genuinely different?</h2>
             <p
               style={{
@@ -545,48 +580,36 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 4: Q4 — Journey stage ── */}
-        {step === 4 && (
-          <div key="s4" style={screenStyle}>
-            <p style={labelStyle}>Question 4 of 8</p>
+        {/* ── Screen 5: Q5 — Journey stage ── */}
+        {step === 5 && (
+          <div key="s5" style={screenStyle}>
+            <p style={labelStyle}>Question 5 of 9</p>
             <h2 style={questionStyle}>Where are you in the journey?</h2>
             <div style={chipsWrap}>
               {["Just an idea", "Pre-launch", "Early traction", "Scaling"].map((opt) => (
-                <Chip
-                  key={opt}
-                  label={opt}
-                  selected={stage === opt}
-                  onClick={() => chipSelectAndAdvance(setStage, opt)}
-                />
+                <Chip key={opt} label={opt} selected={stage === opt} onClick={() => chipSelectAndAdvance(setStage, opt)} />
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Screen 5: Q5 — Price point ── */}
-        {step === 5 && (
-          <div key="s5" style={screenStyle}>
-            <p style={labelStyle}>Question 5 of 8</p>
+        {/* ── Screen 6: Q6 — Price point ── */}
+        {step === 6 && (
+          <div key="s6" style={screenStyle}>
+            <p style={labelStyle}>Question 6 of 9</p>
             <h2 style={questionStyle}>What is the price point?</h2>
             <div style={chipsWrap}>
-              {["Under Rs 500", "Rs 500-2,000", "Rs 2,000-10,000", "Rs 10,000+"].map(
-                (opt) => (
-                  <Chip
-                    key={opt}
-                    label={opt}
-                    selected={priceBand === opt}
-                    onClick={() => chipSelectAndAdvance(setPriceBand, opt)}
-                  />
-                )
-              )}
+              {["Under ₹500", "₹500–₹2,000", "₹2,000–₹10,000", "₹10,000+"].map((opt) => (
+                <Chip key={opt} label={opt} selected={priceBand === opt} onClick={() => chipSelectAndAdvance(setPriceBand, opt)} />
+              ))}
             </div>
           </div>
         )}
 
-        {/* ── Screen 6: Q6 — Reference brand (optional) ── */}
-        {step === 6 && (
-          <div key="s6" style={screenStyle}>
-            <p style={labelStyle}>Question 6 of 8</p>
+        {/* ── Screen 7: Q7 — Reference brand (optional) ── */}
+        {step === 7 && (
+          <div key="s7" style={screenStyle}>
+            <p style={labelStyle}>Question 7 of 9</p>
             <h2 style={questionStyle}>Name one brand whose work you respect</h2>
             <p
               style={{
@@ -618,10 +641,10 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 7: Q7 — Channels (multi-select) ── */}
-        {step === 7 && (
-          <div key="s7" style={screenStyle}>
-            <p style={labelStyle}>Question 7 of 8</p>
+        {/* ── Screen 8: Q8 — Channels (multi-select) ── */}
+        {step === 8 && (
+          <div key="s8" style={screenStyle}>
+            <p style={labelStyle}>Question 8 of 9</p>
             <h2 style={questionStyle}>Which channels matter most?</h2>
             <p
               style={{
@@ -650,10 +673,10 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 8: Q8 — Priority outcome ── */}
-        {step === 8 && (
-          <div key="s8" style={screenStyle}>
-            <p style={labelStyle}>Question 8 of 8</p>
+        {/* ── Screen 9: Q9 — Priority outcome ── */}
+        {step === 9 && (
+          <div key="s9" style={screenStyle}>
+            <p style={labelStyle}>Question 9 of 9</p>
             <h2 style={questionStyle}>What outcome do you need most urgently?</h2>
             <div style={chipsWrap}>
               {[
@@ -676,8 +699,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 9: Building Brand DNA ── */}
-        {step === 9 && (
+        {/* ── Screen 10: Building Brand DNA ── */}
+        {step === 10 && (
           <div
             key="s9"
             style={{

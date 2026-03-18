@@ -53,8 +53,13 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     let detail = `Request failed: ${res.status}`;
-    try { detail = JSON.parse(text).detail || detail; } catch { if (text) detail = text.slice(0, 120); }
-    if (res.status === 502 || res.status === 503 || detail.toLowerCase().includes("econnrefused")) {
+    try {
+      const d = JSON.parse(text).detail;
+      if (typeof d === "string") detail = d;
+      else if (Array.isArray(d)) detail = d.map((e: any) => e.msg || JSON.stringify(e)).join(", ");
+      else if (d) detail = JSON.stringify(d);
+    } catch { if (text) detail = text.slice(0, 120); }
+    if (res.status === 502 || res.status === 503 || (typeof detail === "string" && detail.toLowerCase().includes("econnrefused"))) {
       detail = "Cannot reach server — make sure the backend is running on port 8000.";
     }
     throw new Error(detail);
