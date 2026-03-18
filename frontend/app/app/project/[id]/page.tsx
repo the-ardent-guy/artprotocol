@@ -633,7 +633,14 @@ export default function ProjectChatPage() {
       kind: "assistant",
       text: `Starting **${d.icon} ${d.name}** — estimated **~${d.eta}**.`,
     });
-    await startDeploy(deptId, {});
+    // Pass brief text as base — backend normalize_brief + DNA enrichment fills the rest
+    const baseAnswers: Record<string, string> = {
+      brand_name:  proj.name.replace(/_/g, " "),
+      what_it_is:  proj.brief || "",
+      notes:       proj.brief || "",
+      query:       proj.name.replace(/_/g, " "),
+    };
+    await startDeploy(deptId, baseAnswers);
   }
 
   async function startDeploy(deptId: string, answers: Record<string, string>) {

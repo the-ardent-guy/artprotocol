@@ -395,15 +395,22 @@ def run_research_headless(client_name, brief):
     print(f'[STATUS] Building 15-query search plan for {name}...', flush=True)
 
     # Ensure research.py brief fields are fully mapped
+    what_it_is = (
+        brief.get("what_it_is") or
+        brief.get("usp") or
+        brief.get("notes") or
+        brief.get("brief") or
+        ""
+    )
     research_brief = {
         "brand_name":     name,
-        "what_it_is":     brief.get("what_it_is", brief.get("query", "")),
+        "what_it_is":     what_it_is,
         "category":       category,
         "subcategory":    "",
         "location":       location,
         "target_geo":     location,
-        "customer":       brief.get("customer", ""),
-        "problem_solved": brief.get("problem_solved", brief.get("notes", "")),
+        "customer":       brief.get("customer") or brief.get("target_audience") or brief.get("audience") or "",
+        "problem_solved": brief.get("problem_solved") or brief.get("notes") or brief.get("brief") or what_it_is,
         "competitors":    competitors,
         "founder_belief": "",
         "stage":          stage or "new",
@@ -455,8 +462,8 @@ def normalize_brief(brief: dict, client_name: str) -> dict:
     When called from the user-facing app, brief may be {'brief': '<raw text>'}.
     We extract a brand_name and fill in defaults so crew runners don't crash.
     """
-    if "brand_name" in brief:
-        return brief  # already structured
+    if brief.get("brand_name", "").strip():
+        return brief  # already structured with a real brand name
 
     raw_text = brief.get("brief", "")
     # Use the last segment of the client path as project name
