@@ -258,5 +258,19 @@ def get_brand_dna(project_id: str) -> Optional[Dict]:
         conn.close()
 
 
+def clear_all_users() -> int:
+    """Delete all users and their associated data. Returns count of deleted users."""
+    conn = get_db()
+    try:
+        count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        conn.execute("DELETE FROM credit_transactions")
+        conn.execute("DELETE FROM user_jobs")
+        conn.execute("DELETE FROM users")
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
 # Run on import
 init_db()

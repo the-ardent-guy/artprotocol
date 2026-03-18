@@ -107,6 +107,33 @@ function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("en-US",
 interface Commentary { done: string[]; now: string; }
 
 function buildCommentary(lines: string[], dept: string): Commentary {
+  // --- Primary signal: [STATUS] lines ---
+  // Extract all [STATUS] messages from the last 20 lines
+  const recent20 = lines.slice(-20);
+  const allStatusLines = lines.filter(l => l.includes("[STATUS]"));
+  const recentStatusLines = recent20.filter(l => l.includes("[STATUS]"));
+
+  const extractStatus = (line: string): string =>
+    line.substring(line.indexOf("[STATUS]") + 8).trim();
+
+  if (allStatusLines.length > 0) {
+    // Done = all STATUS lines except the last 3
+    const doneStatusLines = allStatusLines.slice(0, Math.max(0, allStatusLines.length - 3));
+    const done = doneStatusLines
+      .map(extractStatus)
+      .filter(Boolean)
+      .slice(-6);
+
+    // Now = most recent STATUS line
+    const nowLine = recentStatusLines.length > 0
+      ? recentStatusLines[recentStatusLines.length - 1]
+      : allStatusLines[allStatusLines.length - 1];
+    const now = extractStatus(nowLine);
+
+    return { done, now: now || "Agents at work..." };
+  }
+
+  // --- Fallback: keyword matching (no STATUS lines yet) ---
   const text = lines.join(" ").toLowerCase();
   const done: string[] = [];
 

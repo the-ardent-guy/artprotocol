@@ -248,6 +248,7 @@ def ask_claude(prompt, system="You are a senior research analyst.", model="claud
 # Decompose, type-detect, ambiguity, scope, search plan
 
 def layer1_query_understanding(brief):
+    print('[STATUS] Mapping out your research strategy...', flush=True)
     print("\n  L1 - Query Understanding: building research plan...")
 
     location = brief.get('location', '') or 'the primary market'
@@ -310,6 +311,8 @@ def layer1_query_understanding(brief):
         model="claude-sonnet-4-6",
         max_tokens=3000
     )
+    query_count = sum(1 for line in result.split('\n') if line.strip().upper().startswith('QUERY:'))
+    print(f'[STATUS] Built {query_count} targeted search queries', flush=True)
     print("  done: Research plan built")
     return result
 
@@ -318,6 +321,7 @@ def layer1_query_understanding(brief):
 # Web search + full page fetch + follow-up branches from findings
 
 def layer2_retrieval(brief, research_plan):
+    print('[STATUS] Searching the web for market data...', flush=True)
     print("\n  L2 - Retrieval: web search + full page extraction + follow-up branches...")
 
     b = brief
@@ -377,6 +381,7 @@ def layer2_retrieval(brief, research_plan):
     follow_up_triggers = []
 
     for query, label in base_queries:
+        print(f'[STATUS] Scanning {label}...', flush=True)
         print("    >> " + label + "...")
         results, paa = google_search(query, num=5)
 
@@ -398,6 +403,8 @@ def layer2_retrieval(brief, research_plan):
 
             # Fetch full content for top 2 results per query
             if i < 2:
+                _domain = r['link'].split("/")[2] if "/" in r['link'] else r['link']
+                print(f'[STATUS] Reading source: {_domain}...', flush=True)
                 print("         Fetching: " + r['link'][:65] + "...")
                 content = fetch_page(r['link'])
                 all_findings += "Full Content:\n" + content + "\n"
@@ -436,6 +443,7 @@ def layer2_retrieval(brief, research_plan):
                 all_sources.append(r)
             time.sleep(1)
 
+    print(f'[STATUS] Found {len(all_sources)} sources across {len(base_queries)} searches', flush=True)
     print("  done: Retrieval complete. Sources collected: " + str(len(all_sources)))
     return all_findings, all_sources
 
@@ -444,6 +452,7 @@ def layer2_retrieval(brief, research_plan):
 # Claim extraction, credibility assessment, contradiction flagging
 
 def layer3_extraction(brief, depth_findings):
+    print('[STATUS] Extracting key claims from sources...', flush=True)
     print("\n  L3 - Extraction: claims, credibility, contradictions...")
 
     # Step 1: Extract structured claims
@@ -479,6 +488,9 @@ def layer3_extraction(brief, depth_findings):
     top_claims_text = ask_claude(verify_prompt, model="claude-haiku-4-5-20251001", max_tokens=400)
 
     verification = ""
+    print('[STATUS] Verifying top claims with secondary searches...', flush=True)
+    _claim_lines = [l.strip() for l in top_claims_text.strip().split('\n')[:4] if l.strip() and len(l.strip()) >= 10]
+    print(f'[STATUS] Cross-checking {len(_claim_lines)} critical claims', flush=True)
     print("    Verifying key claims with secondary searches...")
     for line in top_claims_text.strip().split('\n')[:4]:
         line = line.strip()
@@ -507,6 +519,7 @@ def layer3_extraction(brief, depth_findings):
 # LAYER 4: ADVERSARIAL + ITERATIVE DEEPENING + SUFFICIENCY CHECK
 
 def layer4_adversarial(brief, depth_findings, extraction):
+    print('[STATUS] Running adversarial checks — what could go wrong?', flush=True)
     print("\n  L4 - Adversarial + Iterative Deepening...")
 
     # Adversarial searches — location-aware, no hardcoded geography
@@ -537,6 +550,7 @@ def layer4_adversarial(brief, depth_findings, extraction):
         time.sleep(1)
 
     # ITERATIVE DEEPENING: ask Claude what is still missing, spawn searches
+    print('[STATUS] Identifying research gaps...', flush=True)
     print("    Identifying research gaps for deepening...")
     gap_prompt = (
         "Review this research for " + brief['brand_name'] + " and identify "
@@ -560,6 +574,7 @@ def layer4_adversarial(brief, depth_findings, extraction):
                 gap_queries.append(q)
 
     if gap_queries:
+        print(f'[STATUS] Running {len(gap_queries[:3])} gap-filling searches', flush=True)
         print("    Running " + str(len(gap_queries[:3])) + " gap-filling searches...")
         for q in gap_queries[:3]:
             print("    [GAP] " + q[:55] + "...")
@@ -571,6 +586,7 @@ def layer4_adversarial(brief, depth_findings, extraction):
             time.sleep(1)
 
     # SUFFICIENCY CHECK
+    print('[STATUS] Scoring research sufficiency...', flush=True)
     print("    Running sufficiency check...")
     sufficiency_prompt = (
         "Score the research sufficiency for " + brief['brand_name'] + " on 5 dimensions (1-10):\n\n"
@@ -602,6 +618,7 @@ def layer4_adversarial(brief, depth_findings, extraction):
 # Draft report, self-review for gaps, refine
 
 def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversarial, all_sources):
+    print('[STATUS] Synthesising findings into your report...', flush=True)
     print("\n  L5 - Synthesis + Reflection Loop...")
 
     # Build source index with credibility ratings
@@ -718,6 +735,7 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         "Full numbered list with credibility ratings [HIGH/MEDIUM/LOW]."
     )
 
+    print('[STATUS] Writing market analysis...', flush=True)
     print("    Generating synthesis draft (part 1: Executive Summary → Competitive Landscape)...")
     draft_part1 = ask_claude(
         synthesis_prompt_1,
@@ -726,6 +744,7 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         max_tokens=4000
     )
 
+    print('[STATUS] Writing competitive landscape...', flush=True)
     print("    Generating synthesis draft (part 2: Differentiation → Verified Sources)...")
     draft_part2 = ask_claude(
         synthesis_prompt_2,
@@ -737,6 +756,8 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
     draft_report = draft_part1 + "\n\n" + draft_part2
 
     # REFLECTION LOOP: self-review for gaps and unsupported claims
+    print('[STATUS] Writing strategic implications...', flush=True)
+    print('[STATUS] Running self-review for gaps...', flush=True)
     print("    Running reflection loop...")
     reflection_prompt = (
         "You wrote a research report for " + brief['brand_name'] + ". "
@@ -765,6 +786,7 @@ def layer5_synthesis(brief, research_plan, depth_findings, extraction, adversari
         reflection
     )
 
+    print('[STATUS] Report complete.', flush=True)
     print("  done: Synthesis and reflection complete")
     return final_report, source_index
 

@@ -76,6 +76,14 @@ def run_branding_headless(client_name, brief):
 
     tasks = create_tasks(brief)
 
+    def branding_step_callback(step_output):
+        agent_name = str(getattr(step_output, 'agent', '') or '')
+        if hasattr(step_output, 'thought') and step_output.thought:
+            thought_preview = str(step_output.thought)[:80]
+            print(f'[STATUS] {agent_name}: {thought_preview}...', flush=True)
+        elif hasattr(step_output, 'tool') and step_output.tool:
+            print(f'[STATUS] {agent_name} using {step_output.tool}...', flush=True)
+
     crew = Crew(
         agents=[
             market_researcher,
@@ -88,8 +96,12 @@ def run_branding_headless(client_name, brief):
         process=Process.sequential,
         max_rpm=3,
         verbose=True,
+        step_callback=branding_step_callback,
     )
 
+    print('[STATUS] Crew assembled: Market Researcher + Brand Strategist + Visual Director + GTM Strategist', flush=True)
+    print('[STATUS] Starting with competitive landscape research...', flush=True)
+    print('[STATUS] Researching market landscape...', flush=True)
     print(f"\n>> Starting Branding Crew for {brief['brand_name']}...", flush=True)
     result = crew.kickoff()
 
@@ -192,6 +204,14 @@ def run_social_headless(client_name, brief, brand_document=None):
 
     tasks = create_social_tasks(brief, brand_document)
 
+    def social_step_callback(step_output):
+        agent_name = str(getattr(step_output, 'agent', '') or '')
+        if hasattr(step_output, 'thought') and step_output.thought:
+            thought_preview = str(step_output.thought)[:80]
+            print(f'[STATUS] {agent_name}: {thought_preview}...', flush=True)
+        elif hasattr(step_output, 'tool') and step_output.tool:
+            print(f'[STATUS] {agent_name} using {step_output.tool}...', flush=True)
+
     crew = Crew(
         agents=[
             brand_voice_agent,
@@ -210,8 +230,11 @@ def run_social_headless(client_name, brief, brand_document=None):
         verbose=True,
         max_rpm=3,
         max_retries=2,
+        step_callback=social_step_callback,
     )
 
+    print('[STATUS] Crew assembled: Brand Voice + Platform Intelligence + Content Strategist + Calendar + Copywriter', flush=True)
+    print(f'[STATUS] Analysing {brief.get("brand_name", client_name)} brand voice...', flush=True)
     print(f"\n>> Starting Social Crew for {brief['brand_name']}...", flush=True)
     result = crew.kickoff()
 
@@ -253,13 +276,25 @@ def run_ads_headless(client_name, brief, brand_document=None):
     checkpoint = {"completed": [], "outputs": {}, "brief": brief}
     save_checkpoint(folder, safe_name, checkpoint)
 
+    print('[STATUS] Crew assembled: Audience Researcher + Ad Strategist + Copywriter + Campaign Architect', flush=True)
+    print('[STATUS] Profiling your target audience...', flush=True)
     print(
         f"\n>> Scraping competitor ads for {brief.get('category', '')}...", flush=True
     )
+    print('[STATUS] Gathering competitor ad intelligence...', flush=True)
     competitor_ads = get_competitor_ads(brief["brand_name"], brief.get("category", ""))
     print("done: Competitor ad intelligence gathered", flush=True)
 
+    print('[STATUS] Structuring campaign architecture...', flush=True)
     tasks = create_ads_tasks(brief, competitor_ads, context)
+
+    def ads_step_callback(step_output):
+        agent_name = str(getattr(step_output, 'agent', '') or '')
+        if hasattr(step_output, 'thought') and step_output.thought:
+            thought_preview = str(step_output.thought)[:80]
+            print(f'[STATUS] {agent_name}: {thought_preview}...', flush=True)
+        elif hasattr(step_output, 'tool') and step_output.tool:
+            print(f'[STATUS] {agent_name} using {step_output.tool}...', flush=True)
 
     crew = Crew(
         agents=[
@@ -276,8 +311,10 @@ def run_ads_headless(client_name, brief, brand_document=None):
         process=Process.sequential,
         max_rpm=3,
         verbose=True,
+        step_callback=ads_step_callback,
     )
 
+    print('[STATUS] Building audience profile...', flush=True)
     print(f"\n>> Starting Ads Crew for {brief['brand_name']}...", flush=True)
     result = crew.kickoff()
 
@@ -310,13 +347,24 @@ def run_proposal_headless(client_name, brief):
 
     tasks = create_proposal_tasks(crew_brief)
 
+    def proposal_step_callback(step_output):
+        agent_name = str(getattr(step_output, 'agent', '') or '')
+        if hasattr(step_output, 'thought') and step_output.thought:
+            thought_preview = str(step_output.thought)[:80]
+            print(f'[STATUS] {agent_name}: {thought_preview}...', flush=True)
+        elif hasattr(step_output, 'tool') and step_output.tool:
+            print(f'[STATUS] {agent_name} using {step_output.tool}...', flush=True)
+
     crew = Crew(
         agents=[proposal_writer, scope_writer, pricing_strategist, proposal_critic],
         tasks=tasks,
         process=Process.sequential,
         verbose=True,
+        step_callback=proposal_step_callback,
     )
 
+    print('[STATUS] Crew assembled: Proposal Writer + Scope Analyst + Pricing Strategist + Critic', flush=True)
+    print(f'[STATUS] Drafting proposal structure for {crew_brief["client_name"]}...', flush=True)
     print(f"\n>> Starting Proposal Crew for {crew_brief['client_name']}...", flush=True)
     result = crew.kickoff()
 
@@ -343,6 +391,8 @@ def run_research_headless(client_name, brief):
     print(f"  Location:    {location}", flush=True)
     print(f"  Stage:       {stage}", flush=True)
     print(f"  Competitors: {competitors or 'not provided — will research'}", flush=True)
+    print('[STATUS] Decomposing your research brief...', flush=True)
+    print(f'[STATUS] Building 15-query search plan for {name}...', flush=True)
 
     # Ensure research.py brief fields are fully mapped
     research_brief = {
