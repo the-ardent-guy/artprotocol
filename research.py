@@ -9,7 +9,6 @@ research.py - Art Protocol Deep Research Agent
 """
 
 import anthropic
-from serpapi import GoogleSearch
 from dotenv import load_dotenv
 import os
 import sys
@@ -127,34 +126,38 @@ def get_client_brief():
     return brief
 
 
-# GOOGLE SEARCH with retry
+# GOOGLE SEARCH via Serper.dev REST API
 
 def google_search(query, num=5, retries=3):
+    """Search using Serper.dev — fast, cheap, same Google results."""
     for attempt in range(retries):
         try:
-            search = GoogleSearch({
-                "q": query,
-                "api_key": SERP_KEY,
-                "num": num
-            })
-            results = search.get_dict()
+            resp = requests.post(
+                "https://google.serper.dev/search",
+                headers={"X-API-KEY": SERP_KEY, "Content-Type": "application/json"},
+                json={"q": query, "num": num, "gl": "us", "hl": "en"},
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json()
             output = []
-            for r in results.get("organic_results", []):
+            for r in data.get("organic", []):
                 output.append({
                     "title":   r.get("title", ""),
                     "snippet": r.get("snippet", ""),
                     "link":    r.get("link", ""),
-                    "source":  r.get("displayed_link", ""),
+                    "source":  r.get("displayedLink", r.get("link", "")),
                     "date":    r.get("date", ""),
                 })
-            paa = [p.get("question", "") for p in results.get("related_questions", [])]
+            paa = [p.get("question", "") for p in data.get("peopleAlsoAsk", [])]
+            print(f"    [SEARCH] '{query[:60]}' → {len(output)} results")
             return output, paa
         except Exception as e:
             if attempt < retries - 1:
-                print("    [RETRY] Search failed (" + str(e) + "), retrying in 3s...")
+                print(f"    [RETRY] Search failed ({e}), retrying in 3s...")
                 time.sleep(3)
             else:
-                print("    [SKIP] Search failed after " + str(retries) + " attempts: " + str(e))
+                print(f"    [SKIP] Search failed after {retries} attempts: {e}")
                 return [], []
 
 
