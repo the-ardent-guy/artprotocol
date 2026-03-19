@@ -1347,9 +1347,9 @@ async def get_user_deliverable(
     return {"content": content, "locked": False, "path": path}
 
 
-@app.get("/me/deliverable/{path:path}/pdf")
+@app.get("/me/deliverable-pdf")
 async def user_download_pdf(
-    path: str,
+    path: str = Query(...),
     user: dict = Depends(get_current_user),
 ):
     """PDF download — requires paid credits."""
