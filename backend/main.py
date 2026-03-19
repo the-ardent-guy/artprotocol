@@ -1453,6 +1453,70 @@ async def verify_payment(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ─── ROUTES: IMAGE ANALYSIS ──────────────────────────────────────────────────
+
+class AnalyseImagesRequest(BaseModel):
+    images:  List[Dict[str, str]]   # [{ b64: "...", mime: "image/jpeg" }, ...]
+    context: Optional[str] = ""
+
+@app.post("/me/analyse-images")
+async def analyse_product_images(
+    body: AnalyseImagesRequest,
+    user: dict = Depends(get_current_user),
+):
+    """Use Claude Vision to extract structured product context from uploaded images."""
+    if not ANTHROPIC_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
+    if not body.images:
+        raise HTTPException(status_code=400, detail="No images provided")
+    if len(body.images) > 4:
+        raise HTTPException(status_code=400, detail="Maximum 4 images allowed")
+
+    import anthropic as ac_module
+    client = ac_module.Anthropic(api_key=ANTHROPIC_KEY)
+
+    # Build vision message with all images
+    content: List[Dict] = []
+    for img in body.images:
+        mime = img.get("mime", "image/jpeg")
+        if mime not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+            mime = "image/jpeg"
+        content.append({
+            "type": "image",
+            "source": { "type": "base64", "media_type": mime, "data": img["b64"] },
+        })
+
+    brand_ctx = f"Brand/product context: {body.context}" if body.context else ""
+    content.append({
+        "type": "text",
+        "text": (
+            f"{brand_ctx}\n\n"
+            "Analyse these product image(s) and return a concise structured description that will help "
+            "marketing, branding, and advertising AI agents better understand this product. Include:\n"
+            "- Product type and category\n"
+            "- Visual aesthetic (colours, materials, form factor, packaging style)\n"
+            "- Quality tier and price positioning cues\n"
+            "- Target audience signals visible in the product/packaging\n"
+            "- Brand personality and tone visible in the design\n"
+            "- Any text, logos, or claims visible on packaging\n"
+            "- Unique visual differentiators vs typical category products\n\n"
+            "Return plain prose, 150–250 words. No bullet points. No headers. "
+            "Write as if briefing a senior creative strategist who has never seen the product."
+        ),
+    })
+
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=400,
+            messages=[{"role": "user", "content": content}],
+        )
+        visual_context = response.content[0].text.strip()
+        return {"visual_context": visual_context}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Image analysis failed: {e}")
+
+
 # ─── ROUTES: ADMIN / DEV UTILS ───────────────────────────────────────────────
 
 @app.post("/admin/clear-test-users")
