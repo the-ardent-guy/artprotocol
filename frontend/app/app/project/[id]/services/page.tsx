@@ -134,11 +134,123 @@ function ImgThumb({ src, onRemove }: { src: string; onRemove: () => void }) {
   );
 }
 
+// ── DNA Edit Drawer ────────────────────────────────────────────────────────
+function DNADrawer({ dna, projectId, onClose, onSaved }: {
+  dna:       DNA | null;
+  projectId: string;
+  onClose:   () => void;
+  onSaved:   (updated: DNA) => void;
+}) {
+  const raw = dna?.raw_fields ?? {};
+  const [fields, setFields] = useState({
+    brand_name:      raw.brand_name      ?? "",
+    what_is_it:      raw.what_is_it      ?? "",
+    category:        raw.category        ?? "",
+    audience:        raw.audience        ?? "",
+    usp:             raw.usp             ?? "",
+    stage:           raw.stage           ?? "",
+    active_channels: (raw.active_channels ?? []).join(", "),
+    geography:       (raw as any).geography ?? "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const updated = await apiFetch<DNA>(`/me/projects/${projectId}/dna`, {
+        method: "POST",
+        body: JSON.stringify({
+          raw_fields: {
+            ...fields,
+            active_channels: fields.active_channels.split(",").map(s => s.trim()).filter(Boolean),
+          },
+        }),
+      });
+      // Re-enrich with updated fields
+      await apiFetch(`/me/projects/${projectId}/dna/enrich`, { method: "POST" });
+      const fresh = await apiFetch<DNA>(`/me/projects/${projectId}/dna`);
+      onSaved(fresh);
+      setSaved(true);
+      setTimeout(() => { setSaved(false); onClose(); }, 1000);
+    } catch { /* silent */ }
+    setSaving(false);
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%", background: "#faf8f5", border: "1.5px solid #e8e0d5",
+    borderRadius: 8, padding: "0.6rem 0.85rem", fontSize: 13, color: "#1c1812",
+    outline: "none", fontFamily: "Inter, sans-serif", boxSizing: "border-box",
+    transition: "border-color 0.15s",
+  };
+
+  return (
+    <div
+      style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(28,24,18,0.6)", backdropFilter: "blur(6px)", display: "flex", alignItems: "flex-end", justifyContent: "center" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{ background: "#fff", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 -12px 60px rgba(0,0,0,0.2)", padding: "1.75rem 2rem 2.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.5rem" }}>
+          <div>
+            <h2 style={{ fontSize: 17, fontWeight: 700, color: "#1c1812", fontFamily: "Playfair Display, serif" }}>Edit Brand DNA</h2>
+            <p style={{ fontSize: 12, color: "#a89880" }}>Changes will re-enrich your archetype, tone, and visual direction.</p>
+          </div>
+          <button onClick={onClose} style={{ background: "#f0ece5", border: "none", borderRadius: 8, color: "#786b58", fontSize: 16, cursor: "pointer", padding: "0.35rem 0.75rem", fontWeight: 600 }}>✕</button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {([
+            { key: "brand_name",      label: "Brand / Project name",       type: "input" },
+            { key: "what_is_it",      label: "What is it",                  type: "textarea" },
+            { key: "usp",             label: "What makes it different",     type: "textarea" },
+            { key: "category",        label: "Category",                    type: "input" },
+            { key: "audience",        label: "Target audience",             type: "input" },
+            { key: "stage",           label: "Stage",                       type: "input" },
+            { key: "geography",       label: "Primary market / geography",  type: "input" },
+            { key: "active_channels", label: "Channels (comma-separated)",  type: "input" },
+          ] as const).map(({ key, label, type }) => (
+            <div key={key}>
+              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#b0a090", display: "block", marginBottom: "0.35rem" }}>{label}</label>
+              {type === "textarea" ? (
+                <textarea
+                  value={(fields as any)[key]}
+                  onChange={e => setFields(p => ({ ...p, [key]: e.target.value }))}
+                  rows={3}
+                  style={{ ...inputStyle, resize: "vertical", lineHeight: 1.6 }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "#d4a043")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "#e8e0d5")}
+                />
+              ) : (
+                <input
+                  type="text"
+                  value={(fields as any)[key]}
+                  onChange={e => setFields(p => ({ ...p, [key]: e.target.value }))}
+                  style={inputStyle}
+                  onFocus={e => (e.currentTarget.style.borderColor = "#d4a043")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "#e8e0d5")}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ marginTop: "1.75rem", width: "100%", padding: "0.9rem", background: saved ? "#2daa6e" : saving ? "#e8e0d5" : "#1c1812", color: saved ? "#fff" : saving ? "#b0a090" : "#fff", border: "none", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", transition: "all 0.2s", fontFamily: "Inter, sans-serif" }}
+        >
+          {saved ? "✓ Saved — re-enriching DNA..." : saving ? "Saving..." : "Save & Re-enrich DNA →"}
+        </button>
+      </div>
+    </div>
+  );
+}
 // ── Intake Modal ──────────────────────────────────────────────────────────────
-function IntakeModal({ service, dna, project, onClose, onLaunch }: {
+function IntakeModal({ service, dna, project, runs, onClose, onLaunch }: {
   service:  ServiceConfig;
   dna:      DNA | null;
   project:  Project | null;
+  runs:     Record<string, ServiceRun>;
   onClose:  () => void;
   onLaunch: (brief: Record<string, string>) => void;
 }) {
@@ -249,7 +361,7 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(28,24,18,0.72)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.28)" }}>
+      <div className="svc-modal" style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 480, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.28)" }}>
 
         {/* Header */}
         <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #ece6dc", background: service.bg, display: "flex", alignItems: "center", gap: "0.75rem", borderRadius: "20px 20px 0 0", flexShrink: 0 }}>
@@ -326,6 +438,39 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
                     </span>
                   )}
                   <span style={{ fontSize: 10, color: "#c8bfb2", alignSelf: "center", fontFamily: "Inter, sans-serif" }}>from your Brand DNA — agents will use this automatically</span>
+                </div>
+              )}
+                            {/* Connection indicators — show what prior service data is available */}
+              {service.id === "branding" && runs["research"]?.status === "done" && (
+                <div style={{ background: "#eef4ff", border: "1px solid #4f8ef050", borderRadius: 8, padding: "0.5rem 0.8rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: 12 }}>🔗</span>
+                  <p style={{ fontSize: 11, color: "#4f8ef0", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+                    Your Research report will be used to ground this strategy automatically.
+                  </p>
+                </div>
+              )}
+              {(service.id === "social" || service.id === "ads") && runs["branding"]?.status === "done" && (
+                <div style={{ background: "#fff8ee", border: "1px solid #e8a02050", borderRadius: 8, padding: "0.5rem 0.8rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: 12 }}>🔗</span>
+                  <p style={{ fontSize: 11, color: "#e8a020", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+                    Your Identity strategy will shape the tone & targeting automatically.
+                  </p>
+                </div>
+              )}
+              {service.id === "ads" && runs["research"]?.status === "done" && runs["branding"]?.status !== "done" && (
+                <div style={{ background: "#eef4ff", border: "1px solid #4f8ef050", borderRadius: 8, padding: "0.5rem 0.8rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: 12 }}>🔗</span>
+                  <p style={{ fontSize: 11, color: "#4f8ef0", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+                    Your Research findings will inform the audience targeting.
+                  </p>
+                </div>
+              )}
+              {service.id === "proposal" && runs["branding"]?.status === "done" && (
+                <div style={{ background: "#edfaf4", border: "1px solid #2daa6e50", borderRadius: 8, padding: "0.5rem 0.8rem", marginBottom: "1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: 12 }}>🔗</span>
+                  <p style={{ fontSize: 11, color: "#2daa6e", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+                    Your brand strategy will be woven into the deck narrative.
+                  </p>
                 </div>
               )}
               {/* Delta questions — only for things DNA does not already cover */}
@@ -462,49 +607,6 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
 }
 
 // ── Full-Stack Modal ──────────────────────────────────────────────────────────
-function FullStackModal({ onClose, onLaunch, running }: {
-  onClose: () => void;
-  onLaunch: () => void;
-  running: boolean;
-}) {
-  return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(28,24,18,0.72)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "1.5rem" }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div style={{ background: "#fff", borderRadius: 20, width: "100%", maxWidth: 420, padding: "2rem", boxShadow: "0 24px 80px rgba(0,0,0,0.28)", textAlign: "center" }}>
-        <div style={{ width: 52, height: 52, borderRadius: 14, background: "#1c1812", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#f7f4ef", margin: "0 auto 1.25rem", boxShadow: "0 6px 20px rgba(28,24,18,0.25)" }}>⚡</div>
-        <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1c1812", marginBottom: "0.5rem", fontFamily: "Playfair Display, serif" }}>Full Stack Run</h2>
-        <p style={{ fontSize: 13, color: "#a89880", lineHeight: 1.7, marginBottom: "1.5rem" }}>
-          Runs all 5 services in sequence using your Brand DNA.<br />
-          <strong style={{ color: "#1c1812" }}>Research → Identity → Social → Growth → Decks</strong>
-        </p>
-        <div style={{ background: "#f7f4ef", borderRadius: 10, padding: "0.85rem 1rem", marginBottom: "1.5rem", textAlign: "left" }}>
-          {SERVICES.map((s, i) => (
-            <div key={s.id} style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.3rem 0" }}>
-              <span style={{ color: s.color, fontSize: 14, flexShrink: 0 }}>{s.icon}</span>
-              <span style={{ fontSize: 12, color: "#4a3f35", flex: 1 }}>{s.name}</span>
-              <span style={{ fontSize: 10, color: s.color, background: s.bg, borderRadius: 4, padding: "0.1rem 0.45rem", fontWeight: 600 }}>{s.cost} Credits</span>
-              {i < SERVICES.length - 1 && <span style={{ fontSize: 10, color: "#c8bfb2" }}>~{s.eta}</span>}
-            </div>
-          ))}
-          <div style={{ borderTop: "1px solid #ece6dc", marginTop: "0.5rem", paddingTop: "0.5rem", display: "flex", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#786b58" }}>Total</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#1c1812" }}>{SERVICES.reduce((a, s) => a + s.cost, 0)} credits · ~35-50 min</span>
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "0.75rem" }}>
-          <button onClick={onClose} style={{ flex: 1, padding: "0.75rem", borderRadius: 10, border: "1.5px solid #ece6dc", background: "#fff", color: "#786b58", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-          <button onClick={onLaunch} disabled={running} style={{ flex: 2, padding: "0.75rem", borderRadius: 10, border: "none", background: "#1c1812", color: "#fff", fontSize: 13, fontWeight: 700, cursor: running ? "not-allowed" : "pointer", boxShadow: "0 4px 16px rgba(28,24,18,0.25)" }}>
-            {running ? "Launching..." : "Launch Full Stack →"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function ServicesPage() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
@@ -513,8 +615,7 @@ export default function ServicesPage() {
   const [dna,      setDNA]      = useState<DNA | null>(null);
   const [runs,     setRuns]     = useState<Record<string, ServiceRun>>({});
   const [openSvc,  setOpenSvc]  = useState<ServiceConfig | null>(null);
-  const [showFS,   setShowFS]   = useState(false);
-  const [fsRunning,setFSRunning]= useState(false);
+  const [showDNA,  setShowDNA]  = useState(false);
   const [loading,  setLoading]  = useState(true);
   const esRefs = useRef<Record<string, EventSource>>({});
 
@@ -594,61 +695,7 @@ export default function ServicesPage() {
     }
   }
 
-  async function launchFullStack() {
-    setShowFS(false);
-    setFSRunning(true);
-    // Fire in sequence - each one waits for the prior to finish
-    for (const svcId of ORDER) {
-      const svc = getSvc(svcId);
-      const dnaFields = dna?.raw_fields ?? {};
-      const brief: Record<string, string> = {
-        brand_name:      dnaFields.brand_name  || project?.name  || "",
-        what_it_is:      dnaFields.what_is_it  || project?.brief || "",
-        category:        dnaFields.category    || "",
-        target_audience: dnaFields.audience    || "",
-        usp:             dnaFields.usp         || "",
-        notes:           project?.brief        || "",
-        query:           dnaFields.brand_name  || project?.name  || "",
-      };
-      await new Promise<void>(resolve => {
-        setRunState(svcId, { status: "running", lines: [], error: undefined });
-        apiFetch<{ job_id: string }>("/me/run-crew", {
-          method: "POST",
-          body: JSON.stringify({ project_id: id, crew_name: svcId, brief }),
-        }).then(job => {
-          const base = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-          const es   = new EventSource(`${base}/me/stream/${job.job_id}?api_key=${getToken()}`);
-          esRefs.current[svcId] = es;
-          es.onmessage = evt => {
-            try {
-              const data = JSON.parse(evt.data);
-              if (data.type === "line") {
-                setRuns(p => {
-                  const prev = p[svcId] ?? { status: "running" as const, lines: [] };
-                  return { ...p, [svcId]: { ...prev, lines: [...prev.lines, data.text] } };
-                });
-              } else if (data.type === "done") {
-                es.close(); delete esRefs.current[svcId];
-                apiFetch<Deliverable[]>(`/me/projects/${id}/deliverables`).then(dels => {
-                  const d = dels.find(d => d.crew === svcId);
-                  setRunState(svcId, { status: "done", deliverable: d });
-                }).catch(() => setRunState(svcId, { status: "done" }));
-                resolve();
-              } else if (data.type === "error") {
-                es.close(); delete esRefs.current[svcId];
-                setRunState(svcId, { status: "error", error: data.text ?? "Error" });
-                resolve(); // continue next service even if one fails
-              }
-            } catch { /* ignore */ }
-          };
-          es.onerror = () => { es.close(); delete esRefs.current[svcId]; setRunState(svcId, { status: "error", error: "Stream error" }); resolve(); };
-        }).catch(e => { setRunState(svcId, { status: "error", error: e.message }); resolve(); });
-      });
-    }
-    setFSRunning(false);
-  }
-
-  const anyRunning = Object.values(runs).some(r => r.status === "running") || fsRunning;
+  const anyRunning = Object.values(runs).some(r => r.status === "running");
   const doneCount  = Object.values(runs).filter(r => r.status === "done").length;
 
   if (loading) {
@@ -683,7 +730,7 @@ export default function ServicesPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: "2.5rem 1.5rem" }}>
+      <div className="svc-hub-inner" style={{ maxWidth: 960, margin: "0 auto", padding: "2.5rem 1.5rem" }}>
 
         {/* Page title + DNA pill */}
         <div style={{ marginBottom: "2rem", display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
@@ -697,29 +744,39 @@ export default function ServicesPage() {
             )}
           </div>
 
-          {/* Full stack CTA */}
+          {/* DNA edit button */}
           <button
-            onClick={() => setShowFS(true)}
-            disabled={anyRunning}
-            style={{
-              display: "flex", alignItems: "center", gap: "0.5rem",
-              padding: "0.75rem 1.5rem", background: anyRunning ? "#e8e0d5" : "#1c1812",
-              border: "none", borderRadius: 10, color: anyRunning ? "#b0a090" : "#fff",
-              fontSize: 13, fontWeight: 700, cursor: anyRunning ? "not-allowed" : "pointer",
-              boxShadow: anyRunning ? "none" : "0 4px 16px rgba(28,24,18,0.2)",
-              transition: "all 0.15s",
-            }}
+            onClick={() => setShowDNA(true)}
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.55rem 1.1rem", background: "#fff", border: "1.5px solid #e8e0d5", borderRadius: 10, color: "#786b58", fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.15s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "#d4a043"; e.currentTarget.style.color = "#1c1812"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "#e8e0d5"; e.currentTarget.style.color = "#786b58"; }}
           >
-            <span style={{ fontSize: 15 }}>⚡</span>
-            {fsRunning ? "Running full stack..." : "Run Full Stack"}
+            <span>✏️</span> Edit Brand DNA
           </button>
         </div>
 
-        {/* Divider */}
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
-          <div style={{ flex: 1, height: 1, background: "#ece6dc" }} />
-          <span style={{ fontSize: 10, letterSpacing: "0.2em", color: "#c8bfb2", textTransform: "uppercase", fontWeight: 600 }}>Or run individually</span>
-          <div style={{ flex: 1, height: 1, background: "#ece6dc" }} />
+        {/* Progress tracker */}
+        <div style={{ marginBottom: "1.75rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem", flexWrap: "wrap" }}>
+            {SERVICES.map((svc, i) => {
+              const run = runs[svc.id];
+              const isDone = run?.status === "done";
+              const isRunning = run?.status === "running";
+              return (
+                <div key={svc.id} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.7rem", borderRadius: 20, background: isDone ? "#edfaf4" : isRunning ? svc.bg : "#f7f4ef", border: `1.5px solid ${isDone ? "#2daa6e40" : isRunning ? svc.color + "50" : "#ece6dc"}`, transition: "all 0.3s" }}>
+                    <span style={{ fontSize: 10 }}>{isDone ? "✓" : isRunning ? "⟳" : "○"}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: isDone ? "#2daa6e" : isRunning ? svc.color : "#c8bfb2" }}>{svc.name}</span>
+                  </div>
+                  {i < SERVICES.length - 1 && <span style={{ fontSize: 10, color: "#ddd8d0" }}>→</span>}
+                </div>
+              );
+            })}
+            <span style={{ fontSize: 11, color: "#b0a090", marginLeft: "auto" }}>{doneCount} of {SERVICES.length} complete</span>
+          </div>
+          <div style={{ height: 3, background: "#ece6dc", borderRadius: 100, overflow: "hidden" }}>
+            <div style={{ height: "100%", background: "linear-gradient(90deg, #2daa6e, #4f8ef0)", borderRadius: 100, width: `${(doneCount / SERVICES.length) * 100}%`, transition: "width 0.4s ease" }} />
+          </div>
         </div>
 
         {/* Service cards grid */}
@@ -768,14 +825,27 @@ export default function ServicesPage() {
                   <p style={{ fontSize: 11, color: "#f15b50", background: "#fff1f0", borderRadius: 8, padding: "0.4rem 0.7rem" }}>{run.error}</p>
                 )}
 
-                {/* Done - output link */}
+                {/* Done - output link + next service nudge */}
                 {run?.status === "done" && run.deliverable && (
-                  <Link href={`/app/project/${id}?view=1&output=${encodeURIComponent(run.deliverable.path)}`} style={{ fontSize: 11, fontWeight: 600, color: "#2daa6e", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{run.deliverable.filename}</span>
-                    <span style={{ flexShrink: 0 }}>→</span>
-                  </Link>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+                    <Link href={`/app/project/${id}?view=1&output=${encodeURIComponent(run.deliverable.path)}`} style={{ fontSize: 11, fontWeight: 600, color: "#2daa6e", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{run.deliverable.filename}</span>
+                      <span style={{ flexShrink: 0 }}>→</span>
+                    </Link>
+                    {(() => {
+                      const nextIdx = ORDER.indexOf(svc.id) + 1;
+                      const nextId = ORDER[nextIdx];
+                      const nextSvc = nextId ? getSvc(nextId) : null;
+                      const nextRun = nextId ? runs[nextId] : null;
+                      if (!nextSvc || nextRun?.status === "done") return null;
+                      return (
+                        <div onClick={() => !anyRunning && setOpenSvc(nextSvc)} style={{ fontSize: 10, color: nextSvc.color, background: nextSvc.bg, border: `1px solid ${nextSvc.color}30`, borderRadius: 6, padding: "0.2rem 0.6rem", display: "inline-flex", alignItems: "center", gap: "0.3rem", cursor: anyRunning ? "default" : "pointer", fontWeight: 600 }}>
+                          Next: {nextSvc.name} →
+                        </div>
+                      );
+                    })()}
+                  </div>
                 )}
-
                 {/* Run button */}
                 <button
                   onClick={() => !anyRunning && setOpenSvc(svc)}
@@ -815,28 +885,37 @@ export default function ServicesPage() {
       </div>
 
       {/* Intake modal */}
+      {showDNA && (
+        <DNADrawer
+          dna={dna}
+          projectId={id ?? ""}
+          onClose={() => setShowDNA(false)}
+          onSaved={(updated) => { setDNA(updated); setShowDNA(false); }}
+        />
+      )}
+
       {openSvc && (
         <IntakeModal
           service={openSvc}
           dna={dna}
           project={project}
+          runs={runs}
           onClose={() => setOpenSvc(null)}
           onLaunch={brief => launchService(openSvc.id, brief)}
-        />
-      )}
-
-      {/* Full-stack modal */}
-      {showFS && (
-        <FullStackModal
-          onClose={() => setShowFS(false)}
-          onLaunch={launchFullStack}
-          running={fsRunning}
         />
       )}
 
       <style>{`
         @keyframes svc-spin   { to { transform: rotate(360deg) } }
         @keyframes svc-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+        @media (max-width: 600px) {
+          .svc-grid { grid-template-columns: 1fr !important; }
+          .svc-hub-inner { padding: 1.25rem 1rem !important; }
+          .svc-subheader { padding: 0.5rem 1rem !important; font-size: 11px; }
+          .svc-modal { margin: 0 !important; border-radius: 20px 20px 0 0 !important; max-height: 96vh !important; position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; max-width: 100% !important; }
+          .svc-progress { flex-wrap: wrap !important; gap: 0.3rem !important; }
+          .svc-progress span { font-size: 9px !important; }
+        }
       `}</style>
     </div>
   );

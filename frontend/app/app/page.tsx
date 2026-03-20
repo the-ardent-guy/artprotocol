@@ -106,6 +106,66 @@ function ContinueBtn({
   );
 }
 
+// ── Project Card ──────────────────────────────────────────────────────────────
+function ProjectCard({ p, clientTags, editingTag, tagInput, setEditingTag, setTagInput, saveTag }: {
+  p:            { id: string; name: string; output_count: number; last_run: string | null };
+  clientTags:   Record<string, string>;
+  editingTag:   string | null;
+  tagInput:     string;
+  setEditingTag:(id: string | null) => void;
+  setTagInput:  (v: string) => void;
+  saveTag:      (id: string, tag: string) => void;
+}) {
+  const tag = clientTags[p.id];
+
+  function fmt(iso: string | null) {
+    if (!iso) return null;
+    return new Date(iso).toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+  }
+
+  return (
+    <div style={{ background: "#fff", border: "1.5px solid #ece6dc", borderRadius: 14, padding: "1.1rem 1.25rem", display: "flex", flexDirection: "column", gap: "0.6rem", transition: "border-color 0.15s" }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = "#d4a043")}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = "#ece6dc")}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "0.5rem" }}>
+        <Link href={`/app/project/${p.id}`} style={{ fontSize: 14, fontWeight: 700, color: "#1c1812", textDecoration: "none", fontFamily: "Playfair Display, serif", lineHeight: 1.3, flex: 1 }}>
+          {p.name}
+        </Link>
+        <span style={{ fontSize: 10, color: "#c8bfb2", flexShrink: 0, marginTop: "0.1rem" }}>
+          {p.output_count > 0 ? `${p.output_count} output${p.output_count !== 1 ? "s" : ""}` : "No runs yet"}
+        </span>
+      </div>
+
+      {p.last_run && (
+        <p style={{ fontSize: 11, color: "#b0a090", fontFamily: "Inter, sans-serif" }}>Last run: {fmt(p.last_run)}</p>
+      )}
+
+      {/* Client tag */}
+      {editingTag === p.id ? (
+        <div style={{ display: "flex", gap: "0.4rem" }}>
+          <input
+            autoFocus
+            type="text" value={tagInput}
+            onChange={e => setTagInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") saveTag(p.id, tagInput); if (e.key === "Escape") { setEditingTag(null); setTagInput(""); } }}
+            placeholder="Client name..."
+            style={{ flex: 1, fontSize: 11, border: "1.5px solid #d4a043", borderRadius: 6, padding: "0.3rem 0.6rem", outline: "none", fontFamily: "Inter, sans-serif", color: "#1c1812" }}
+          />
+          <button onClick={() => saveTag(p.id, tagInput)} style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: "#1c1812", border: "none", borderRadius: 6, padding: "0.3rem 0.65rem", cursor: "pointer" }}>✓</button>
+          <button onClick={() => { setEditingTag(null); setTagInput(""); }} style={{ fontSize: 11, color: "#b0a090", background: "#f0ece5", border: "none", borderRadius: 6, padding: "0.3rem 0.65rem", cursor: "pointer" }}>✕</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => { setEditingTag(p.id); setTagInput(tag ?? ""); }}
+          style={{ fontSize: 10, fontWeight: 600, color: tag ? "#e8a020" : "#c8bfb2", background: tag ? "#fff8ee" : "#f7f4ef", border: `1px solid ${tag ? "#e8a02030" : "#ece6dc"}`, borderRadius: 20, padding: "0.2rem 0.65rem", cursor: "pointer", alignSelf: "flex-start", fontFamily: "Inter, sans-serif", transition: "all 0.15s" }}
+        >
+          {tag ? `📁 ${tag}` : "+ Tag client"}
+        </button>
+      )}
+    </div>
+  );
+}
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
@@ -134,10 +194,28 @@ export default function OnboardingPage() {
   const [error, setError] = useState("");
   const [projects, setProjects] = useState<Project[]>([]);
   const [dnaProgress, setDnaProgress] = useState(0);
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [clientTags, setClientTags] = useState<Record<string, string>>({});
+  const [editingTag, setEditingTag] = useState<string | null>(null);
+  const [tagInput, setTagInput] = useState("");
 
   useEffect(() => {
     apiFetch<Project[]>("/me/projects").then(setProjects).catch(() => {});
+    // Load client tags from localStorage
+    try {
+      const stored = localStorage.getItem("ap_client_tags");
+      if (stored) setClientTags(JSON.parse(stored));
+    } catch { /* ignore */ }
   }, []);
+
+  function saveTag(projectId: string, tag: string) {
+    const updated = { ...clientTags, [projectId]: tag.trim() };
+    if (!tag.trim()) delete updated[projectId];
+    setClientTags(updated);
+    localStorage.setItem("ap_client_tags", JSON.stringify(updated));
+    setEditingTag(null);
+    setTagInput("");
+  }
 
   // Auto-focus text inputs after slide animation
   useEffect(() => {
@@ -449,171 +527,114 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 0: What are you building? ── */}
+        {/* ── Screen 0: Studio Dashboard or New Project selector ── */}
         {step === 0 && (
-          <div key="s0" style={screenStyle}>
-            <p style={labelStyle}>Art Protocol Studio</p>
-            <h1 style={questionStyle}>What are you building?</h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: "#a89880",
-                marginBottom: "2rem",
-                marginTop: "-0.5rem",
-                fontFamily: "Inter, system-ui, sans-serif",
-              }}
-            >
-              This shapes everything — your Brand DNA, the questions, the outputs.
-            </p>
-            <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
-              {[
-                {
-                  type: "brand",
-                  icon: "🏷️",
-                  title: "A Brand",
-                  desc: "You have a product, service, or business — physical, digital, or D2C.",
-                },
-                {
-                  type: "content",
-                  icon: "🎙️",
-                  title: "A Show or Channel",
-                  desc: "Podcast, talk show, YouTube channel, newsletter, or media brand.",
-                },
-                {
-                  type: "idea",
-                  icon: "💡",
-                  title: "An Idea",
-                  desc: "You're validating a concept — no name, no product yet.",
-                },
-              ].map((opt) => {
-                const isSelected = projectType === opt.type;
-                return (
-                  <div
-                    key={opt.type}
-                    onClick={() => {
-                      setProjectType(opt.type);
-                      setTimeout(advance, 90);
-                    }}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: "1rem",
-                      background: isSelected ? "#faf8f4" : "#fff",
-                      border: `2px solid ${isSelected ? "#1c1812" : "#ece6dc"}`,
-                      borderRadius: 14,
-                      padding: "1.25rem 1.5rem",
-                      cursor: "pointer",
-                      textAlign: "left",
-                      transition: "all 0.15s",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSelected)
-                        (e.currentTarget as HTMLDivElement).style.borderColor = "#d4a043";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSelected)
-                        (e.currentTarget as HTMLDivElement).style.borderColor = "#ece6dc";
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: "50%",
-                        background: "#f5f0e8",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 20,
-                        flexShrink: 0,
-                      }}
-                    >
-                      {opt.icon}
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: 15,
-                          fontWeight: 700,
-                          color: "#1c1812",
-                          fontFamily: "Inter, system-ui, sans-serif",
-                        }}
-                      >
-                        {opt.title}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 13,
-                          color: "#a89880",
-                          marginTop: "0.2rem",
-                          fontFamily: "Inter, system-ui, sans-serif",
-                        }}
-                      >
-                        {opt.desc}
-                      </div>
-                    </div>
+          <>
+            {/* If user has projects AND not starting a new one, show dashboard */}
+            {projects.length > 0 && !showNewProject ? (
+              <div style={{ width: "100%", maxWidth: 720, padding: "0 0.5rem" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem", flexWrap: "wrap", gap: "1rem" }}>
+                  <div>
+                    <p style={{ fontSize: 10, letterSpacing: "0.3em", color: "#c9943a", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.3rem", fontFamily: "Inter, system-ui, sans-serif" }}>Studio</p>
+                    <h1 style={{ fontSize: 24, fontWeight: 300, color: "#1c1812", fontFamily: "Playfair Display, serif", margin: 0 }}>Your Projects</h1>
                   </div>
-                );
-              })}
-            </div>
+                  <button
+                    onClick={() => setShowNewProject(true)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.65rem 1.25rem", background: "#1c1812", border: "none", borderRadius: 10, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "Inter, system-ui, sans-serif" }}
+                  >
+                    + New Project
+                  </button>
+                </div>
 
-            {/* Recent projects */}
-            {projects.length > 0 && (
-              <div
-                style={{
-                  marginTop: "3rem",
-                  width: "100%",
-                  maxWidth: 480,
-                  textAlign: "left",
-                }}
-              >
-                <p
-                  style={{
-                    fontSize: 10,
-                    color: "#c8bfb2",
-                    letterSpacing: "0.2em",
-                    textTransform: "uppercase",
-                    marginBottom: "0.75rem",
-                    fontWeight: 600,
-                    fontFamily: "Inter, system-ui, sans-serif",
-                  }}
-                >
-                  Or continue an existing project:
+                {/* Group by client tag */}
+                {(() => {
+                  // Build groups: tagged projects grouped by client, untagged at bottom
+                  const groups: Record<string, Project[]> = {};
+                  const untagged: Project[] = [];
+                  projects.forEach(p => {
+                    const tag = clientTags[p.id];
+                    if (tag) {
+                      if (!groups[tag]) groups[tag] = [];
+                      groups[tag].push(p);
+                    } else {
+                      untagged.push(p);
+                    }
+                  });
+
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "1.75rem" }}>
+                      {/* Tagged client groups */}
+                      {Object.entries(groups).map(([clientName, clientProjects]) => (
+                        <div key={clientName}>
+                          <p style={{ fontSize: 10, letterSpacing: "0.2em", color: "#b0a090", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>
+                            Client: {clientName}
+                          </p>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem" }}>
+                            {clientProjects.map(p => (
+                              <ProjectCard key={p.id} p={p} clientTags={clientTags} editingTag={editingTag} tagInput={tagInput} setEditingTag={setEditingTag} setTagInput={setTagInput} saveTag={saveTag} />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* Untagged projects */}
+                      {untagged.length > 0 && (
+                        <div>
+                          {Object.keys(groups).length > 0 && (
+                            <p style={{ fontSize: 10, letterSpacing: "0.2em", color: "#b0a090", textTransform: "uppercase", fontWeight: 600, marginBottom: "0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>My Projects</p>
+                          )}
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: "0.75rem" }}>
+                            {untagged.map(p => (
+                              <ProjectCard key={p.id} p={p} clientTags={clientTags} editingTag={editingTag} tagInput={tagInput} setEditingTag={setEditingTag} setTagInput={setTagInput} saveTag={saveTag} />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            ) : (
+              /* New project type selector */
+              <div key="s0" style={{ ...screenStyle, animation: showNewProject ? "slideIn 0.3s ease both" : undefined }}>
+                {showNewProject && (
+                  <button onClick={() => setShowNewProject(false)} style={{ alignSelf: "flex-start", background: "none", border: "none", color: "#b0a090", cursor: "pointer", fontSize: 13, marginBottom: "1rem", fontFamily: "Inter, system-ui, sans-serif" }}>
+                    ← Back to Studio
+                  </button>
+                )}
+                <p style={labelStyle}>Art Protocol Studio</p>
+                <h1 style={questionStyle}>What are you building?</h1>
+                <p style={{ fontSize: 13, color: "#a89880", marginBottom: "2rem", marginTop: "-0.5rem", fontFamily: "Inter, system-ui, sans-serif" }}>
+                  This shapes everything — your Brand DNA, the questions, the outputs.
                 </p>
-                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                  {projects.slice(0, 8).map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/app/project/${p.id}`}
-                      style={{
-                        padding: "0.4rem 0.9rem",
-                        background: "#fff",
-                        border: "1.5px solid #ece6dc",
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 500,
-                        color: "#786b58",
-                        textDecoration: "none",
-                        transition: "all 0.15s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = "#d4a043";
-                        e.currentTarget.style.color = "#1c1812";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = "#ece6dc";
-                        e.currentTarget.style.color = "#786b58";
-                      }}
-                    >
-                      {p.name}
-                    </Link>
-                  ))}
+                <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+                  {[
+                    { type: "brand",   icon: "🏷️", title: "A Brand",           desc: "You have a product, service, or business — physical, digital, or D2C." },
+                    { type: "content", icon: "🎙️", title: "A Show or Channel",  desc: "Podcast, talk show, YouTube channel, newsletter, or media brand." },
+                    { type: "idea",    icon: "💡", title: "An Idea",             desc: "You're validating a concept — no name, no product yet." },
+                  ].map((opt) => {
+                    const isSelected = projectType === opt.type;
+                    return (
+                      <div
+                        key={opt.type}
+                        onClick={() => { setProjectType(opt.type); setTimeout(advance, 90); }}
+                        style={{ display: "flex", alignItems: "flex-start", gap: "1rem", background: isSelected ? "#faf8f4" : "#fff", border: `2px solid ${isSelected ? "#1c1812" : "#ece6dc"}`, borderRadius: 14, padding: "1.25rem 1.5rem", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+                        onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = "#d4a043"; }}
+                        onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.borderColor = "#ece6dc"; }}
+                      >
+                        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{opt.icon}</div>
+                        <div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: "#1c1812", fontFamily: "Inter, system-ui, sans-serif" }}>{opt.title}</div>
+                          <div style={{ fontSize: 13, color: "#a89880", marginTop: "0.2rem", fontFamily: "Inter, system-ui, sans-serif" }}>{opt.desc}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
-          </div>
+          </>
         )}
-
         {/* ── Screen 1: Name ── */}
         {step === 1 && (
           <div key="s1" style={screenStyle}>
