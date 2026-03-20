@@ -214,7 +214,7 @@ export default function CreditsPage() {
                     <span style={{ color: "#d4a043", fontSize: 13 }}>{d.icon}</span>
                     <span style={{ fontSize: 13, color: "#9a8864" }}>{d.name}</span>
                   </div>
-                  <span style={{ fontSize: 12, color: "#554d3a", fontFamily: "JetBrains Mono, monospace" }}>{d.cost} cr</span>
+                  <span style={{ fontSize: 12, color: "#554d3a", fontFamily: "JetBrains Mono, monospace" }}>{d.cost} Credits</span>
                 </div>
               ))}
             </div>

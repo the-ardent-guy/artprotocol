@@ -125,6 +125,7 @@ export default function OnboardingPage() {
   const [usp, setUsp] = useState("");
   const [stage, setStage] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
+  const [geography, setGeography] = useState("");
   const [priorityService, setPriorityService] = useState("");
 
   // UI state
@@ -149,7 +150,7 @@ export default function OnboardingPage() {
 
   // Progress bar animation for screen 9
   useEffect(() => {
-    if (step !== 9) return;
+    if (step !== 10) return;
     setDnaProgress(0);
     const start = Date.now();
     const duration = 3000;
@@ -195,7 +196,7 @@ export default function OnboardingPage() {
 
   async function runOnboarding(finalService: string) {
     setAnimDir("forward");
-    setStep(9);
+    setStep(10);
     setLoading(true);
     setError("");
     setDnaProgress(0);
@@ -224,6 +225,7 @@ export default function OnboardingPage() {
             usp: usp.trim(),
             stage: mappedStage,
             active_channels: channels,
+            geography,
             priority_service: mappedService,
           },
         }),
@@ -245,7 +247,7 @@ export default function OnboardingPage() {
   }
 
   // ─── Shared styles ────────────────────────────────────────────────────────
-  const TOTAL_STEPS = 8;
+  const TOTAL_STEPS = 9;
 
   const screenStyle: React.CSSProperties = {
     animation: `${animDir === "forward" ? "slideIn" : "slideInLeft"} 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both`,
@@ -405,7 +407,7 @@ export default function OnboardingPage() {
         }}
       >
         {/* Progress bar — screens 1–8 */}
-        {step > 0 && step < 9 && (
+        {step > 0 && step < 10 && (
           <div
             style={{
               width: "100%",
@@ -614,7 +616,7 @@ export default function OnboardingPage() {
         {/* ── Screen 1: Name ── */}
         {step === 1 && (
           <div key="s1" style={screenStyle}>
-            <p style={labelStyle}>Step 1 of 8</p>
+            <p style={labelStyle}>Step 1 of 9</p>
             <h2 style={questionStyle}>{nameHeadline[pt]}</h2>
             {pt === "idea" && (
               <p
@@ -655,7 +657,7 @@ export default function OnboardingPage() {
         {/* ── Screen 2: Category ── */}
         {step === 2 && (
           <div key="s2" style={screenStyle}>
-            <p style={labelStyle}>Step 2 of 8</p>
+            <p style={labelStyle}>Step 2 of 9</p>
             <h2 style={questionStyle}>{categoryHeadline[pt]}</h2>
             <div style={chipsWrap}>
               {(categoryOptions[pt] || []).map((opt) => (
@@ -673,7 +675,7 @@ export default function OnboardingPage() {
         {/* ── Screen 3: Description ── */}
         {step === 3 && (
           <div key="s3" style={screenStyle}>
-            <p style={labelStyle}>Step 3 of 8</p>
+            <p style={labelStyle}>Step 3 of 9</p>
             <h2 style={questionStyle}>{descHeadline[pt]}</h2>
             <div style={{ width: "100%", maxWidth: 480 }}>
               <textarea
@@ -727,7 +729,7 @@ export default function OnboardingPage() {
         {/* ── Screen 4: Audience ── */}
         {step === 4 && (
           <div key="s4" style={screenStyle}>
-            <p style={labelStyle}>Step 4 of 8</p>
+            <p style={labelStyle}>Step 4 of 9</p>
             <h2 style={questionStyle}>Who is this for?</h2>
             <p
               style={{
@@ -768,7 +770,7 @@ export default function OnboardingPage() {
         {/* ── Screen 5: USP ── */}
         {step === 5 && (
           <div key="s5" style={screenStyle}>
-            <p style={labelStyle}>Step 5 of 8</p>
+            <p style={labelStyle}>Step 5 of 9</p>
             <h2 style={questionStyle}>{uspHeadline[pt]}</h2>
             <div style={{ width: "100%", maxWidth: 480 }}>
               <textarea
@@ -822,7 +824,7 @@ export default function OnboardingPage() {
         {/* ── Screen 6: Stage ── */}
         {step === 6 && (
           <div key="s6" style={screenStyle}>
-            <p style={labelStyle}>Step 6 of 8</p>
+            <p style={labelStyle}>Step 6 of 9</p>
             <h2 style={questionStyle}>Where are you right now?</h2>
             <div style={chipsWrap}>
               {(stageOptions[pt] || []).map((opt) => (
@@ -840,7 +842,7 @@ export default function OnboardingPage() {
         {/* ── Screen 7: Channels ── */}
         {step === 7 && (
           <div key="s7" style={screenStyle}>
-            <p style={labelStyle}>Step 7 of 8</p>
+            <p style={labelStyle}>Step 7 of 9</p>
             <h2 style={questionStyle}>{channelsHeadline[pt]}</h2>
             <p
               style={{
@@ -879,10 +881,47 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 8: Priority outcome ── */}
+        {/* ── Screen 8: Geography ── */}
         {step === 8 && (
           <div key="s8" style={screenStyle}>
-            <p style={labelStyle}>Step 8 of 8</p>
+            <p style={labelStyle}>Step 8 of 9</p>
+            <h2 style={questionStyle}>Where is your primary market?</h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#a89880",
+                marginBottom: "1.25rem",
+                marginTop: "-0.75rem",
+                fontFamily: "Inter, system-ui, sans-serif",
+              }}
+            >
+              Shapes competitor research, pricing benchmarks & platform strategy.
+            </p>
+            <div style={chipsWrap}>
+              {[
+                "India",
+                "South / Southeast Asia",
+                "Middle East",
+                "US / Canada",
+                "UK / Europe",
+                "Australia / NZ",
+                "Global",
+              ].map((opt) => (
+                <Chip
+                  key={opt}
+                  label={opt}
+                  selected={geography === opt}
+                  onClick={() => chipSelectAndAdvance(setGeography, opt)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Screen 9: Priority outcome ── */}
+        {step === 9 && (
+          <div key="s9p" style={screenStyle}>
+            <p style={labelStyle}>Step 9 of 9</p>
             <h2 style={questionStyle}>What do you need most right now?</h2>
             <p
               style={{
@@ -917,8 +956,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 9: Building Brand DNA ── */}
-        {step === 9 && (
+        {/* ── Screen 10: Building Brand DNA ── */}
+        {step === 10 && (
           <div
             key="s9"
             style={{

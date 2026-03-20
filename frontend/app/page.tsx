@@ -437,10 +437,10 @@ export default async function RootPage() {
             {/* Table rows */}
             {[
               { service: "Market Research",  trad: "2 weeks · ₹1–2L",     ap: "~4 minutes · Free" },
-              { service: "Brand Strategy",   trad: "4–6 weeks · ₹5–15L",  ap: "~15 minutes · 350 cr" },
-              { service: "Social Media Plan",trad: "1 week · ₹50K/mo",    ap: "~12 minutes · 350 cr" },
-              { service: "Ad Campaign Setup",trad: "1–2 weeks · ₹30K+",   ap: "~10 minutes · 400 cr" },
-              { service: "Business Proposal",trad: "3–5 days · ₹20–50K",  ap: "~6 minutes · 180 cr" },
+              { service: "Brand Strategy",   trad: "4–6 weeks · ₹5–15L",  ap: "~15 minutes · 350 Credits" },
+              { service: "Social Media Plan",trad: "1 week · ₹50K/mo",    ap: "~12 minutes · 350 Credits" },
+              { service: "Ad Campaign Setup",trad: "1–2 weeks · ₹30K+",   ap: "~10 minutes · 400 Credits" },
+              { service: "Business Proposal",trad: "3–5 days · ₹20–50K",  ap: "~6 minutes · 180 Credits" },
             ].map((row, i) => (
               <div key={row.service} style={{
                 display: "grid", gridTemplateColumns: "1fr 1fr 1fr",

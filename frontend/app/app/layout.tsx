@@ -88,7 +88,7 @@ export default function UserAppLayout({ children }: { children: React.ReactNode 
             transition: "all 0.15s",
           }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: isLow ? "#e8a020" : "#c8bfb2", boxShadow: isLow ? "0 0 8px rgba(232,160,32,0.5)" : "none" }}/>
-            {Math.floor(user.credits)} cr
+            {Math.floor(user.credits).toLocaleString()} Credits
           </Link>
 
           <span style={{ fontSize: 11, color: "#b0a090", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>

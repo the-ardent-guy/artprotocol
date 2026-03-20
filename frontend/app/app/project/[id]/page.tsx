@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { apiFetch, getToken } from "@/lib/userAuth";
 
@@ -463,13 +463,35 @@ function DocRenderer({ content, color, bg }: { content: string; color: string; b
 
 /* ── Deliverable viewer ── */
 function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectId: string; onClose: () => void }) {
-  const [content, setContent] = useState("");
-  const [locked,  setLocked]  = useState(false);
-  const [chatIn,  setChatIn]  = useState("");
-  const [msgs,    setMsgs]    = useState<{ role: "user" | "assistant"; text: string }[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [content,     setContent]     = useState("");
+  const [locked,      setLocked]      = useState(false);
+  const [chatIn,      setChatIn]      = useState("");
+  const [msgs,        setMsgs]        = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [loading,     setLoading]     = useState(false);
+  const [pdfLoading,  setPdfLoading]  = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dep = deptInfo(d.crew);
+
+  async function downloadPdf() {
+    setPdfLoading(true);
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/backend/me/deliverable-pdf?path=${encodeURIComponent(d.path)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = d.filename.replace(/\.(txt|md)$/, ".pdf");
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(`PDF download failed: ${e.message}`);
+    }
+    setPdfLoading(false);
+  }
 
   useEffect(() => {
     apiFetch<{ content: string; locked: boolean }>(`/me/deliverable/${d.path}`)
@@ -486,7 +508,7 @@ function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectI
     setLoading(true);
     try {
       const res = await apiFetch<{ reply: string }>(`/me/projects/${projectId}/chat`, {
-        method: "POST", body: JSON.stringify({ message: msg, context: content.slice(0, 4000) }),
+        method: "POST", body: JSON.stringify({ message: msg, context: viewer?.path ?? "", history: msgs.map(m => ({ role: m.role, content: m.text })) }),
       });
       setMsgs(p => [...p, { role: "assistant", text: res.reply }]);
     } catch (e: any) {
@@ -507,7 +529,11 @@ function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectI
             </div>
           </div>
           <div style={{ display: "flex", gap: "0.5rem" }}>
-            {!locked && <a href={`/api/backend/me/deliverable/${d.path}/pdf`} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 600, color: "#786b58", border: "1px solid #e8e0d5", padding: "0.35rem 0.85rem", borderRadius: 6, textDecoration: "none" }}>↓ PDF</a>}
+            {!locked && (
+              <button onClick={downloadPdf} disabled={pdfLoading} style={{ fontSize: 11, fontWeight: 600, color: "#786b58", border: "1px solid #e8e0d5", padding: "0.35rem 0.85rem", borderRadius: 6, background: "#fff", cursor: pdfLoading ? "not-allowed" : "pointer", opacity: pdfLoading ? 0.6 : 1 }}>
+                {pdfLoading ? "Generating..." : "↓ PDF"}
+              </button>
+            )}
             <button onClick={onClose} style={{ background: "#f0ece5", border: "none", borderRadius: 6, color: "#786b58", fontSize: 14, cursor: "pointer", padding: "0.35rem 0.75rem", fontWeight: 600 }}>✕</button>
           </div>
         </div>
@@ -537,7 +563,11 @@ function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectI
               ))}
               {loading && <div style={{ display: "flex", gap: 4 }}>{[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: "50%", background: dep.color, animation: `bounce 0.8s ease ${i * 0.15}s infinite` }} />)}</div>}
             </div>
-            <form onSubmit={sendChat} style={{ padding: "0.75rem", borderTop: "1px solid #ece6dc", display: "flex", gap: "0.5rem" }}>
+            <div style={{ padding: "0.25rem 0.75rem 0", borderTop: "1px solid #ece6dc", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 10, color: "#c8bfb2", fontFamily: "Inter, sans-serif" }}>Ask anything about this report</span>
+            <span style={{ fontSize: 10, color: "#c8bfb2", fontFamily: "Inter, sans-serif" }}>10 Credits / message</span>
+          </div>
+          <form onSubmit={sendChat} style={{ padding: "0.5rem 0.75rem 0.75rem", display: "flex", gap: "0.5rem" }}>
               <input value={chatIn} onChange={e => setChatIn(e.target.value)} placeholder="Ask a question..." disabled={locked}
                 style={{ flex: 1, background: "#fff", border: "1.5px solid #e8e0d5", borderRadius: 8, padding: "0.6rem 0.75rem", fontSize: 12, color: "#1c1812", outline: "none", fontFamily: "Inter, sans-serif" }}
                 onFocus={e => (e.currentTarget.style.borderColor = dep.color)}
@@ -556,6 +586,14 @@ function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectI
 export default function ProjectChatPage() {
   const { id }       = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const router       = useRouter();
+
+  // This page is now the output viewer — always route to /services first
+  useEffect(() => {
+    if (!searchParams.get("view")) {
+      router.replace(`/app/project/${id}/services`);
+    }
+  }, [id]);
 
   const [project,   setProject]   = useState<Project | null>(null);
   const [messages,  setMessages]  = useState<Msg[]>([]);
@@ -590,10 +628,9 @@ export default function ProjectChatPage() {
         const fromOnboarding = searchParams.get("from") === "onboarding";
         const dept = searchParams.get("dept") ?? "research";
 
+        // No auto-fire — user picks from the services hub
         if (dels.length === 0) {
           setSelDept(dept);
-          // Always skip intake — brief or DNA is enough
-          setTimeout(() => startDeployFromDNA(dept, proj), 600);
         }
       } catch (e: any) { setMessages([{ kind: "error", text: e.message }]); }
     })();
@@ -602,6 +639,25 @@ export default function ProjectChatPage() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   function addMsg(m: Msg) { setMessages(p => [...p, m]); }
+
+  async function downloadDeliverable(d: Deliverable) {
+    try {
+      const token = getToken();
+      const res = await fetch(`/api/backend/me/deliverable-pdf?path=${encodeURIComponent(d.path)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = d.filename.replace(/\.(txt|md)$/, ".pdf");
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert(`PDF download failed: ${e.message}`);
+    }
+  }
 
   function updateLastStream(fn: (s: Extract<Msg, { kind: "stream" }>) => Extract<Msg, { kind: "stream" }>) {
     setMessages(p => {
@@ -782,7 +838,14 @@ export default function ProjectChatPage() {
             onMouseEnter={e => (e.currentTarget.style.color = "#786b58")}
             onMouseLeave={e => (e.currentTarget.style.color = "#b0a090")}>← Studio</Link>
           <span style={{ color: "#ddd8d0" }}>/</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#1c1812", fontFamily: "Playfair Display, serif" }}>{project?.name ?? "Loading..."}</span>
+          <Link href={`/app/project/${id}/services`} style={{ fontSize: 13, fontWeight: 600, color: "#1c1812", fontFamily: "Playfair Display, serif", textDecoration: "none" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#c9943a")}
+            onMouseLeave={e => (e.currentTarget.style.color = "#1c1812")}
+          >
+            {project?.name ?? "Loading..."}
+          </Link>
+          <span style={{ color: "#ddd8d0" }}>/</span>
+          <span style={{ fontSize: 12, color: "#b0a090" }}>Outputs</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <button
@@ -903,7 +966,9 @@ export default function ProjectChatPage() {
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem" }}>
                     <button onClick={() => setViewer(msg.deliverable)} style={{ padding: "0.45rem 1rem", background: dep.color, border: "none", borderRadius: 8, fontSize: 11, fontWeight: 700, color: "#fff", cursor: "pointer", boxShadow: `0 4px 12px ${dep.color}40` }}>View</button>
-                    {!msg.deliverable.locked && <a href={`/api/backend/me/deliverable/${msg.deliverable.path}/pdf`} target="_blank" rel="noreferrer" style={{ padding: "0.45rem 1rem", background: "#f0ece5", border: "none", borderRadius: 8, fontSize: 11, fontWeight: 600, color: "#786b58", textDecoration: "none" }}>PDF</a>}
+                    {!msg.deliverable.locked && (
+                      <button onClick={() => downloadDeliverable(msg.deliverable)} style={{ padding: "0.45rem 1rem", background: "#f0ece5", border: "none", borderRadius: 8, fontSize: 11, fontWeight: 600, color: "#786b58", cursor: "pointer" }}>PDF</button>
+                    )}
                   </div>
                 </div>
               );

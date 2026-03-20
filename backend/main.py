@@ -1215,10 +1215,13 @@ async def user_project_chat(
     body:        ChatRequest,
     user:        dict = Depends(get_current_user),
 ):
-    """Chat with a deliverable. Requires paid credits (no chat on trial)."""
-    balance = db.get_user_credits(user["id"])
-    if user["trial_used"] == 1 and balance <= 0:
-        raise HTTPException(status_code=402, detail="Add credits to use chat")
+    """Chat with a deliverable. Reads actual file for full context. Costs 10 credits per message."""
+    CHAT_COST = 10
+    balance   = db.get_user_credits(user["id"])
+    trial_used = user["trial_used"]
+
+    if trial_used == 1 and balance < CHAT_COST:
+        raise HTTPException(status_code=402, detail="Not enough credits to chat. Add credits to continue.")
 
     if not ANTHROPIC_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set")
@@ -1226,13 +1229,29 @@ async def user_project_chat(
     import anthropic
     ac = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
 
-    system_prompt = (
-        "You are an expert creative and business strategist helping users understand "
-        "and build on their project deliverables from Art Protocol. Be concise, direct, "
-        "and actionable."
-    )
+    # Load deliverable file from disk if body.context is a file path
+    file_context = ""
     if body.context:
-        system_prompt += f"\n\nDocument context:\n\n{body.context[:6000]}"
+        candidate = os.path.join(USER_CLIENTS_DIR, body.context.lstrip("/"))
+        if os.path.isfile(candidate):
+            try:
+                with open(candidate, "r", encoding="utf-8", errors="replace") as fh:
+                    file_context = fh.read()[:24000]
+            except Exception:
+                file_context = body.context[:24000]
+        else:
+            file_context = body.context[:24000]
+
+    system_prompt = (
+        "You are an expert creative and brand strategist at Art Protocol. "
+        "You help users understand, question, and act on their brand deliverables. "
+        "Be concise, direct, and specific. When the user asks about the document, "
+        "quote or reference it directly. When asked to improve or rewrite something, "
+        "produce the actual text, not instructions. "
+        "The deliverable is provided below — never say you cannot see it."
+    )
+    if file_context:
+        system_prompt += f"\n\n---\nDELIVERABLE:\n\n{file_context}\n---"
 
     messages = []
     for h in (body.history or []):
@@ -1242,12 +1261,17 @@ async def user_project_chat(
 
     response = ac.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=1024,
+        max_tokens=1500,
         system=system_prompt,
         messages=messages,
     )
-    return {"reply": response.content[0].text}
+    reply = response.content[0].text
 
+    # Deduct credits (only for non-trial users)
+    if trial_used == 1:
+        db.deduct_credits(user["id"], CHAT_COST, f"Chat - project {project_id}")
+
+    return {"reply": reply, "credits_used": CHAT_COST}
 
 # ─── ROUTES: USER CREW RUNNER ─────────────────────────────────────────────────
 
