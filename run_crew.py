@@ -70,11 +70,33 @@ def run_branding_headless(client_name, brief):
 
     safe_name = brief.get("brand_name", client_name).replace(" ", "_")
 
-    # Start fresh checkpoint with this brief
+    # Auto-load existing research report if available (and not already in brand_document)
+    existing_research = brand_document  # brand_document passed from caller
+    if not existing_research:
+        client_dir = os.path.join(ROOT, "clients", client_name)
+        import glob as _glob
+        research_matches = sorted(
+            _glob.glob(os.path.join(client_dir, "research_*.txt")),
+            key=os.path.getmtime, reverse=True
+        )
+        if research_matches:
+            try:
+                with open(research_matches[0], "r", encoding="utf-8") as f:
+                    existing_research = f.read()
+                print(f"[STATUS] Loaded existing research: {os.path.basename(research_matches[0])}", flush=True)
+            except Exception:
+                pass
+
+    # Log primary data if present
+    primary_data = brief.get("primary_data", "").strip()
+    if primary_data:
+        print(f"[STATUS] Primary research data detected ({len(primary_data)} chars) — injecting into all tasks", flush=True)
+
+    # Start fresh checkpoint
     checkpoint = {"completed": [], "outputs": {}, "brief": brief}
     save_checkpoint(safe_name, checkpoint)
 
-    tasks = create_tasks(brief)
+    tasks = create_tasks(brief, existing_research=existing_research)
 
     def branding_step_callback(step_output):
         agent_name = str(getattr(step_output, 'agent', '') or '')
@@ -100,8 +122,11 @@ def run_branding_headless(client_name, brief):
     )
 
     print('[STATUS] Crew assembled: Market Researcher + Brand Strategist + Visual Director + GTM Strategist', flush=True)
-    print('[STATUS] Starting with competitive landscape research...', flush=True)
-    print('[STATUS] Researching market landscape...', flush=True)
+    if existing_research:
+        print('[STATUS] Existing research loaded — skipping full market research phase', flush=True)
+    else:
+        print('[STATUS] Starting with competitive landscape research...', flush=True)
+    print('[STATUS] Building Brand Key + 3 Visual Directions + Manifesto + 90-Day Plan...', flush=True)
     print(f"\n>> Starting Branding Crew for {brief['brand_name']}...", flush=True)
     result = crew.kickoff()
 

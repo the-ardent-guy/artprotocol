@@ -126,6 +126,7 @@ export default function OnboardingPage() {
   const [stage, setStage] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [geography, setGeography] = useState("");
+  const [geographyCustom, setGeographyCustom] = useState("");
   const [priorityService, setPriorityService] = useState("");
 
   // UI state
@@ -225,7 +226,7 @@ export default function OnboardingPage() {
             usp: usp.trim(),
             stage: mappedStage,
             active_channels: channels,
-            geography,
+            geography: geographyCustom.trim() ? `${geography} — ${geographyCustom.trim()}` : geography,
             priority_service: mappedService,
           },
         }),
@@ -902,19 +903,39 @@ export default function OnboardingPage() {
                 "India",
                 "South / Southeast Asia",
                 "Middle East",
-                "US / Canada",
-                "UK / Europe",
+                "United States",
+                "United Kingdom",
+                "Europe",
+                "Canada",
                 "Australia / NZ",
+                "Latin America",
                 "Global",
               ].map((opt) => (
                 <Chip
                   key={opt}
                   label={opt}
                   selected={geography === opt}
-                  onClick={() => chipSelectAndAdvance(setGeography, opt)}
+                  onClick={() => setGeography(opt)}
                 />
               ))}
             </div>
+            <div style={{ width: "100%", maxWidth: 480, marginTop: "1.25rem" }}>
+              <p style={{ fontSize: 11, color: "#c8bfb2", textAlign: "left", marginBottom: "0.5rem", letterSpacing: "0.05em", textTransform: "uppercase", fontWeight: 600, fontFamily: "Inter, system-ui, sans-serif" }}>
+                Add specific cities, regions, or markets (optional)
+              </p>
+              <input
+                type="text"
+                value={geographyCustom}
+                onChange={(e) => setGeographyCustom(e.target.value)}
+                placeholder="e.g. Mumbai, Tier 2 India, Dubai, NYC, Southeast London..."
+                style={{ ...textInputStyle, fontSize: 14 }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
+              />
+            </div>
+            {geography && (
+              <ContinueBtn onClick={advance} label="Continue →" />
+            )}
           </div>
         )}
 

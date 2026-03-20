@@ -39,58 +39,61 @@ interface ServiceConfig {
   openLabel?:      string;
   openPlaceholder?:string;
   deltaQuestions?: DeltaQuestion[];
-  acceptsFiles?:   boolean;
-  fileLabel?:      string;
-  acceptsImages?:  boolean;
+  acceptsFiles?:      boolean;
+  fileLabel?:         string;
+  acceptsImages?:     boolean;
+  acceptsPrimaryData?: boolean;
 }
 
 // ── Service definitions ───────────────────────────────────────────────────────
 const SERVICES: ServiceConfig[] = [
   {
     id: "research", name: "Research", icon: "◎", color: "#4f8ef0", bg: "#eef4ff",
-    eta: "3–5 min", cost: 120,
+    eta: "3-5 min", cost: 120,
     description: "Market landscape, competitor intel, trend mapping & opportunity analysis.",
     dualEntry: true,
     openLabel: "What do you want to research?",
     openPlaceholder: "e.g. D2C pet supplements market, AI productivity tools in India, creator economy 2025...",
     deltaQuestions: [
-      { key: "focus", label: "Specific angle or competitors to focus on?", placeholder: "Optional — press Enter to skip" },
+      { key: "focus", label: "Specific angle or competitors to focus on?", placeholder: "Optional - press Enter to skip" },
     ],
     acceptsImages: true,
+    acceptsPrimaryData: true,
   },
   {
     id: "branding", name: "Identity", icon: "◈", color: "#e8a020", bg: "#fff8ee",
-    eta: "10–15 min", cost: 350,
+    eta: "10-15 min", cost: 350,
     description: "Brand strategy, visual identity system, positioning & tone of voice.",
     deltaQuestions: [
       { key: "personality", label: "Desired brand personality", placeholder: "e.g. bold & minimal, warm & premium, playful but credible" },
     ],
     acceptsFiles: true,
-    fileLabel: "Drop existing brand guidelines (PDF — optional)",
+    fileLabel: "Drop existing brand guidelines (PDF - optional)",
     acceptsImages: true,
+    acceptsPrimaryData: true,
   },
   {
     id: "social", name: "Social Media", icon: "◉", color: "#9b5de5", bg: "#f6f0ff",
-    eta: "10–15 min", cost: 350,
+    eta: "10-15 min", cost: 350,
     description: "Content strategy, platform playbooks, 30-day calendar & captions.",
     dualEntry: true,
     openLabel: "Audit a brand or creator",
     openPlaceholder: "e.g. @nikerunning on Instagram, a fintech brand on LinkedIn, a creator's YouTube presence...",
     deltaQuestions: [
-      { key: "platforms", label: "Priority platforms", placeholder: "e.g. Instagram, LinkedIn, X — blank to use DNA" },
+      { key: "platforms", label: "Priority platforms", placeholder: "e.g. Instagram, LinkedIn, X - blank to use DNA" },
       { key: "tone",      label: "Tone of voice",       placeholder: "e.g. bold, playful, professional" },
     ],
     acceptsImages: true,
   },
   {
     id: "ads", name: "Growth", icon: "◆", color: "#f15b50", bg: "#fff1f0",
-    eta: "8–12 min", cost: 400,
+    eta: "8-12 min", cost: 400,
     description: "Ad strategy, high-converting copy, campaign architecture & audience targeting.",
     dualEntry: true,
     openLabel: "Analyse a category or competitor's ads",
     openPlaceholder: "e.g. Meta ads in D2C fashion, Google Ads for Indian EdTech, competitor ad teardown...",
     deltaQuestions: [
-      { key: "product",   label: "Specific product or offer to promote", placeholder: "Optional — blank to use Brand DNA" },
+      { key: "product",   label: "Specific product or offer to promote", placeholder: "Optional - blank to use Brand DNA" },
       { key: "budget",    label: "Monthly ad budget",                    placeholder: "e.g. ₹50,000 / $2,000" },
       { key: "platforms", label: "Ad platforms",                         placeholder: "e.g. Meta, Google, YouTube" },
     ],
@@ -98,7 +101,7 @@ const SERVICES: ServiceConfig[] = [
   },
   {
     id: "proposal", name: "Decks", icon: "◇", color: "#2daa6e", bg: "#edfaf4",
-    eta: "5–8 min", cost: 180,
+    eta: "5-8 min", cost: 180,
     description: "Client proposals, investor decks & pitch narratives with pricing.",
     deltaQuestions: [
       { key: "client_name", label: "Client name", placeholder: "Who is this deck for?", required: true },
@@ -147,6 +150,8 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
   const [images,       setImages]       = useState<{ file: File; preview: string; b64: string }[]>([]);
   const [imgDragging,  setImgDragging]  = useState(false);
   const [analyzingImg, setAnalyzingImg] = useState(false);
+  const [primaryData,  setPrimaryData]  = useState("");
+  const [pdExpanded,   setPdExpanded]   = useState(false);
   const fileInputRef  = useRef<HTMLInputElement>(null);
   const imgInputRef   = useRef<HTMLInputElement>(null);
 
@@ -193,7 +198,7 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({
           images:  images.map(i => ({ b64: i.b64, mime: i.file.type })),
-          context: `${dnaFields.brand_name || project?.name || ""} — ${dnaFields.what_is_it || ""}`,
+          context: `${dnaFields.brand_name || project?.name || ""} - ${dnaFields.what_is_it || ""}`,
         }),
       });
       if (!res.ok) return "";
@@ -228,6 +233,7 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
       query:                 dnaFields.brand_name  || project?.name  || "",
       ...(droppedFile ? { _attached_file: droppedFile.name } : {}),
       ...(visualCtx ? { product_visual_context: visualCtx } : {}),
+      ...(primaryData.trim() ? { primary_data: primaryData.trim() } : {}),
       ...answers,
     });
   }
@@ -284,7 +290,7 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
                 onFocus={e => (e.currentTarget.style.borderColor = service.color)}
                 onBlur={e  => (e.currentTarget.style.borderColor = `${service.color}40`)}
               />
-              <p style={{ fontSize: 11, color: "#c8bfb2", marginTop: "0.35rem" }}>No brand DNA required — runs as a standalone job.</p>
+              <p style={{ fontSize: 11, color: "#c8bfb2", marginTop: "0.35rem" }}>No brand DNA required - runs as a standalone job.</p>
             </div>
           )}
 
@@ -365,6 +371,48 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
             </div>
           )}
 
+          {/* Primary research data upload */}
+          {service.acceptsPrimaryData && (
+            <div style={{ marginBottom: "1.25rem" }}>
+              <button
+                onClick={() => setPdExpanded(p => !p)}
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: pdExpanded ? "#fff8ee" : "#faf8f5", border: `1.5px solid ${pdExpanded ? "#e8a020" : "#e8e0d5"}`, borderRadius: 10, padding: "0.75rem 1rem", cursor: "pointer", marginBottom: pdExpanded ? "0.75rem" : 0, transition: "all 0.15s" }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                  <span style={{ fontSize: 15 }}>🔬</span>
+                  <div style={{ textAlign: "left" }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#1c1812", fontFamily: "Inter, sans-serif" }}>Add Primary Research Data</p>
+                    <p style={{ fontSize: 11, color: "#a89880", fontFamily: "Inter, sans-serif" }}>Surveys, interviews, observations — nearly 2× better outputs</p>
+                  </div>
+                </div>
+                <span style={{ fontSize: 12, color: "#c8bfb2" }}>{pdExpanded ? "▲" : "▼"}</span>
+              </button>
+              {pdExpanded && (
+                <div>
+                  <div style={{ background: "#fff8ee", border: "1px solid #e8a02030", borderRadius: 8, padding: "0.65rem 0.9rem", marginBottom: "0.6rem" }}>
+                    <p style={{ fontSize: 11, color: "#a07010", fontFamily: "Inter, sans-serif", lineHeight: 1.6 }}>
+                      <strong>Primary data gives the AI what no desk research can find.</strong> Paste survey results, interview notes, customer quotes, focus group findings, NPS data, or any first-hand observations. The agents will integrate this as the highest-quality signal and build the strategy around your actual customers — not assumptions.
+                    </p>
+                  </div>
+                  <textarea
+                    value={primaryData}
+                    onChange={e => setPrimaryData(e.target.value)}
+                    placeholder={"Paste your primary research here...\n\ne.g.\n- Survey: 78% of respondents said price was not the main barrier\n- Interview with 6 customers: all mentioned 'trust' as the #1 purchase driver\n- NPS: 67 (promoters mention 'ease of use')\n- Common objection: 'I don't know if it will work for me'"}
+                    rows={7}
+                    style={{ width: "100%", background: "#fff", border: "1.5px solid #e8e0d5", borderRadius: 10, padding: "0.85rem 1rem", fontSize: 12, color: "#1c1812", lineHeight: 1.7, resize: "vertical", outline: "none", fontFamily: "Inter, sans-serif", boxSizing: "border-box", transition: "border-color 0.15s" }}
+                    onFocus={e => (e.currentTarget.style.borderColor = "#e8a020")}
+                    onBlur={e => (e.currentTarget.style.borderColor = "#e8e0d5")}
+                  />
+                  {primaryData.trim() && (
+                    <p style={{ fontSize: 10, color: "#2daa6e", marginTop: "0.35rem", fontFamily: "Inter, sans-serif", fontWeight: 600 }}>
+                      ✓ {primaryData.trim().split(/\s+/).length} words of primary data will be injected into every agent
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Launch button */}
           <button
             onClick={handleLaunch}
@@ -420,7 +468,7 @@ function FullStackModal({ onClose, onLaunch, running }: {
           ))}
           <div style={{ borderTop: "1px solid #ece6dc", marginTop: "0.5rem", paddingTop: "0.5rem", display: "flex", justifyContent: "space-between" }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#786b58" }}>Total</span>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "#1c1812" }}>{SERVICES.reduce((a, s) => a + s.cost, 0)} credits · ~35–50 min</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#1c1812" }}>{SERVICES.reduce((a, s) => a + s.cost, 0)} credits · ~35-50 min</span>
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem" }}>
@@ -527,7 +575,7 @@ export default function ServicesPage() {
   async function launchFullStack() {
     setShowFS(false);
     setFSRunning(true);
-    // Fire in sequence — each one waits for the prior to finish
+    // Fire in sequence - each one waits for the prior to finish
     for (const svcId of ORDER) {
       const svc = getSvc(svcId);
       const dnaFields = dna?.raw_fields ?? {};
@@ -599,7 +647,7 @@ export default function ServicesPage() {
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
           <Link href="/app" style={{ fontSize: 11, fontWeight: 600, color: "#b0a090", textDecoration: "none" }}>← Studio</Link>
           <span style={{ color: "#ddd8d0" }}>/</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#1c1812", fontFamily: "Playfair Display, serif" }}>{project?.name ?? "—"}</span>
+          <span style={{ fontSize: 13, fontWeight: 600, color: "#1c1812", fontFamily: "Playfair Display, serif" }}>{project?.name ?? "-"}</span>
           <span style={{ color: "#ddd8d0" }}>/</span>
           <span style={{ fontSize: 12, color: "#b0a090" }}>Services</span>
         </div>
@@ -698,7 +746,7 @@ export default function ServicesPage() {
                   <p style={{ fontSize: 11, color: "#f15b50", background: "#fff1f0", borderRadius: 8, padding: "0.4rem 0.7rem" }}>{run.error}</p>
                 )}
 
-                {/* Done — output link */}
+                {/* Done - output link */}
                 {run?.status === "done" && run.deliverable && (
                   <Link href={`/app/project/${id}?view=1&output=${encodeURIComponent(run.deliverable.path)}`} style={{ fontSize: 11, fontWeight: 600, color: "#2daa6e", textDecoration: "none", display: "flex", alignItems: "center", gap: "0.3rem" }}>
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{run.deliverable.filename}</span>
