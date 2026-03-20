@@ -65,7 +65,7 @@ const SERVICES: ServiceConfig[] = [
     eta: "10-15 min", cost: 350,
     description: "Brand strategy, visual identity system, positioning & tone of voice.",
     deltaQuestions: [
-      { key: "personality", label: "Desired brand personality", placeholder: "e.g. bold & minimal, warm & premium, playful but credible" },
+      { key: "direction", label: "Any specific direction or constraints? (optional)", placeholder: "e.g. must feel premium, avoid corporate, inspired by Aesop or Notion — leave blank to use your Brand DNA" },
     ],
     acceptsFiles: true,
     fileLabel: "Drop existing brand guidelines (PDF - optional)",
@@ -307,10 +307,32 @@ function IntakeModal({ service, dna, project, onClose, onLaunch }: {
                   <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 600, color: "#2daa6e", background: "#edfaf4", borderRadius: 4, padding: "0.15rem 0.45rem" }}>DNA ✓</span>
                 </div>
               )}
+              {/* Enriched DNA pills for branding - show archetype/tone so user knows it is loaded */}
+              {service.id === "branding" && dna?.enriched_fields && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", marginBottom: "1rem" }}>
+                  {dna.enriched_fields.brand_archetype && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#e8a020", background: "#fff8ee", border: "1px solid #e8a02030", borderRadius: 20, padding: "0.2rem 0.65rem" }}>
+                      {dna.enriched_fields.brand_archetype} archetype
+                    </span>
+                  )}
+                  {dna.enriched_fields.tone_axis && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#786b58", background: "#f7f4ef", border: "1px solid #e8e0d5", borderRadius: 20, padding: "0.2rem 0.65rem" }}>
+                      {dna.enriched_fields.tone_axis}
+                    </span>
+                  )}
+                  {dna.enriched_fields.visual_mood && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: "#786b58", background: "#f7f4ef", border: "1px solid #e8e0d5", borderRadius: 20, padding: "0.2rem 0.65rem" }}>
+                      {dna.enriched_fields.visual_mood}
+                    </span>
+                  )}
+                  <span style={{ fontSize: 10, color: "#c8bfb2", alignSelf: "center", fontFamily: "Inter, sans-serif" }}>from your Brand DNA — agents will use this automatically</span>
+                </div>
+              )}
+              {/* Delta questions — only for things DNA does not already cover */}
               {service.deltaQuestions && service.deltaQuestions.map(q => (
                 <div key={q.key} style={{ marginBottom: "1rem" }}>
                   <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#b0a090", display: "block", marginBottom: "0.4rem" }}>
-                    {q.label}{q.required ? " *" : " (optional)"}
+                    {q.label}{q.required ? " *" : ""}
                   </label>
                   <input type="text" value={answers[q.key] ?? ""} onChange={e => setAnswers(p => ({ ...p, [q.key]: e.target.value }))} placeholder={q.placeholder}
                     style={{ width: "100%", border: "1.5px solid #ece6dc", borderRadius: 9, padding: "0.7rem 0.9rem", fontSize: 13, color: "#1c1812", outline: "none", fontFamily: "Inter, system-ui, sans-serif", boxSizing: "border-box", transition: "border-color 0.15s" }}
