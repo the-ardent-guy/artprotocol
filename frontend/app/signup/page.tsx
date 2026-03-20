@@ -143,7 +143,7 @@ export default function SignupPage() {
               {alreadyExists ? (
                 <>
                   This email already has an account.{" "}
-                  <Link href="/app/login" style={{ color: "#d4a043", textDecoration: "none", fontWeight: 600 }}>
+                  <Link href="/login" style={{ color: "#d4a043", textDecoration: "none", fontWeight: 600 }}>
                     Log in instead →
                   </Link>
                 </>
@@ -183,7 +183,7 @@ export default function SignupPage() {
           marginBottom: 0,
         }}>
           Already have an account?{" "}
-          <Link href="/app/login" style={{ color: "#b0a090", textDecoration: "none", fontWeight: 600 }}>
+          <Link href="/login" style={{ color: "#b0a090", textDecoration: "none", fontWeight: 600 }}>
             Log in →
           </Link>
         </p>

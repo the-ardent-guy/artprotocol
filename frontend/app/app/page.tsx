@@ -12,18 +12,28 @@ interface Project {
   last_run: string | null;
 }
 
+const SERVICE_MAP: Record<string, string> = {
+  "Understand my market": "research",
+  "Build the brand identity": "branding",
+  "Grow my audience": "social",
+  "Set up ads": "ads",
+  "Create a pitch deck": "proposal",
+};
+
 const STAGE_MAP: Record<string, string> = {
   "Just an idea": "idea",
   "Pre-launch": "pre-launch",
-  "Early traction": "early-traction",
+  "Planning": "idea",
+  "Just started": "pre-launch",
+  "A few episodes in": "early-traction",
+  "Launched": "early-traction",
+  "Growing": "early-traction",
+  "Established": "early-traction",
   "Scaling": "scaling",
-};
-
-const SERVICE_MAP: Record<string, string> = {
-  "Understand my market": "research",
-  "Define the brand": "branding",
-  "Start getting customers": "ads",
-  "Build investor interest": "proposal",
+  "Going full-time": "scaling",
+  "Validating": "pre-launch",
+  "Building MVP": "pre-launch",
+  "Ready to launch": "pre-launch",
 };
 
 // ─── Chip ────────────────────────────────────────────────────────────────────
@@ -99,23 +109,21 @@ function ContinueBtn({
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
-  const brandInputRef = useRef<HTMLInputElement>(null);
-  const whatIsItRef = useRef<HTMLTextAreaElement>(null);
-  const uspInputRef = useRef<HTMLTextAreaElement>(null);
-  const refBrandInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
+  const uspRef = useRef<HTMLTextAreaElement>(null);
 
   const [step, setStep] = useState(0);
   const [animDir, setAnimDir] = useState<"forward" | "back">("forward");
 
   // Answer state
-  const [brandName, setBrandName] = useState("");
+  const [projectType, setProjectType] = useState("");
+  const [projectName, setProjectName] = useState("");
   const [category, setCategory] = useState("");
+  const [description, setDescription] = useState("");
   const [audience, setAudience] = useState<string[]>([]);
-  const [whatIsIt, setWhatIsIt] = useState("");
   const [usp, setUsp] = useState("");
   const [stage, setStage] = useState("");
-  const [priceBand, setPriceBand] = useState("");
-  const [refBrand, setRefBrand] = useState("");
   const [channels, setChannels] = useState<string[]>([]);
   const [priorityService, setPriorityService] = useState("");
 
@@ -132,17 +140,16 @@ export default function OnboardingPage() {
   // Auto-focus text inputs after slide animation
   useEffect(() => {
     const t = setTimeout(() => {
-      if (step === 0) brandInputRef.current?.focus();
-      else if (step === 2) whatIsItRef.current?.focus();
-      else if (step === 4) uspInputRef.current?.focus();
-      else if (step === 7) refBrandInputRef.current?.focus();
+      if (step === 1) nameInputRef.current?.focus();
+      else if (step === 3) descRef.current?.focus();
+      else if (step === 5) uspRef.current?.focus();
     }, 360);
     return () => clearTimeout(t);
   }, [step]);
 
   // Progress bar animation for screen 9
   useEffect(() => {
-    if (step !== 10) return;
+    if (step !== 9) return;
     setDnaProgress(0);
     const start = Date.now();
     const duration = 3000;
@@ -174,21 +181,21 @@ export default function OnboardingPage() {
     setTimeout(advance, 90);
   }
 
-  function toggleChannel(ch: string) {
-    setChannels((prev) =>
-      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
-    );
-  }
-
   function toggleAudience(a: string) {
     setAudience((prev) =>
       prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]
     );
   }
 
+  function toggleChannel(ch: string) {
+    setChannels((prev) =>
+      prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+    );
+  }
+
   async function runOnboarding(finalService: string) {
     setAnimDir("forward");
-    setStep(10);
+    setStep(9);
     setLoading(true);
     setError("");
     setDnaProgress(0);
@@ -200,7 +207,7 @@ export default function OnboardingPage() {
       // a. Create project
       const project = await apiFetch<{ id: string }>("/me/projects", {
         method: "POST",
-        body: JSON.stringify({ name: brandName.trim(), brief: whatIsIt.trim() || usp.trim() }),
+        body: JSON.stringify({ name: projectName.trim(), brief: description.trim() }),
       });
       const projectId = project.id;
 
@@ -208,16 +215,17 @@ export default function OnboardingPage() {
       await apiFetch(`/me/projects/${projectId}/dna`, {
         method: "POST",
         body: JSON.stringify({
-          brand_name: brandName.trim(),
-          what_is_it: whatIsIt.trim(),
-          category,
-          audience: audience.join(", "),
-          usp: usp.trim(),
-          stage: mappedStage,
-          price_band: priceBand,
-          reference_brand: refBrand.trim(),
-          active_channels: channels,
-          priority_service: mappedService,
+          raw_fields: {
+            brand_name: projectName.trim(),
+            project_type: projectType,
+            what_is_it: description.trim(),
+            category,
+            audience: audience.join(", "),
+            usp: usp.trim(),
+            stage: mappedStage,
+            active_channels: channels,
+            priority_service: mappedService,
+          },
         }),
       });
 
@@ -228,9 +236,7 @@ export default function OnboardingPage() {
 
       setDnaProgress(100);
       setTimeout(() => {
-        router.push(
-          `/app/project/${projectId}?from=onboarding&dept=${mappedService}`
-        );
+        router.push(`/app/project/${projectId}/services`);
       }, 500);
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
@@ -239,7 +245,7 @@ export default function OnboardingPage() {
   }
 
   // ─── Shared styles ────────────────────────────────────────────────────────
-  const TOTAL_STEPS = 10;
+  const TOTAL_STEPS = 8;
 
   const screenStyle: React.CSSProperties = {
     animation: `${animDir === "forward" ? "slideIn" : "slideInLeft"} 0.35s cubic-bezier(0.22, 0.61, 0.36, 1) both`,
@@ -291,6 +297,91 @@ export default function OnboardingPage() {
     transition: "border-color 0.15s",
   };
 
+  const categoryOptions: Record<string, string[]> = {
+    brand: [
+      "Physical Product",
+      "Digital Product",
+      "SaaS / App",
+      "Service Business",
+      "D2C",
+      "Marketplace",
+      "Agency / Studio",
+    ],
+    content: [
+      "Podcast",
+      "Talk Show",
+      "YouTube Channel",
+      "Newsletter",
+      "Video Series",
+      "Documentary",
+      "Live Show",
+    ],
+    idea: [
+      "Consumer Product",
+      "Tech / App",
+      "Service",
+      "Content / Media",
+      "Community",
+      "Other",
+    ],
+  };
+
+  const stageOptions: Record<string, string[]> = {
+    brand: ["Just an idea", "Pre-launch", "Launched", "Growing", "Scaling"],
+    content: ["Planning", "Just started", "A few episodes in", "Established", "Going full-time"],
+    idea: ["Just an idea", "Validating", "Building MVP", "Ready to launch"],
+  };
+
+  const pt = projectType || "brand";
+
+  const nameHeadline: Record<string, string> = {
+    brand: "What's your brand name?",
+    content: "What's the name of your show or channel?",
+    idea: "Give it a working title",
+  };
+
+  const namePlaceholder: Record<string, string> = {
+    brand: "e.g. Aura, Bloom, Northseed...",
+    content: "e.g. The Founders Pod, Dark Truths, Deep Dive with Raj...",
+    idea: "e.g. 'Untitled wellness app', 'the productivity tool thing'...",
+  };
+
+  const categoryHeadline: Record<string, string> = {
+    brand: "What kind of brand is it?",
+    content: "What kind of content is it?",
+    idea: "What space is the idea in?",
+  };
+
+  const descHeadline: Record<string, string> = {
+    brand: "Describe your brand in 1–2 sentences",
+    content: "What's the show about?",
+    idea: "Describe the idea",
+  };
+
+  const descPlaceholder: Record<string, string> = {
+    brand: "e.g. A clean skincare brand for Gen Z women who want results, not rituals...",
+    content: "e.g. A weekly interview show exploring how Indian founders built their first ₹1 crore...",
+    idea: "e.g. An app that helps remote teams run better standups with async video...",
+  };
+
+  const uspHeadline: Record<string, string> = {
+    brand: "What makes it genuinely different?",
+    content: "What makes this show worth following?",
+    idea: "What is the core insight behind this idea?",
+  };
+
+  const uspPlaceholder: Record<string, string> = {
+    brand: "e.g. No fillers, just 3 active ingredients — and it actually works...",
+    content: "e.g. We only talk to founders who failed and rebuilt — no success theater...",
+    idea: "e.g. Every existing tool treats it as a feature. We are building it as the core product...",
+  };
+
+  const channelsHeadline: Record<string, string> = {
+    brand: "Which channels matter most?",
+    content: "Where does your content live?",
+    idea: "Where do you want to reach people?",
+  };
+
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div
@@ -314,7 +405,7 @@ export default function OnboardingPage() {
         }}
       >
         {/* Progress bar — screens 1–8 */}
-        {step > 0 && step < 10 && (
+        {step > 0 && step < 9 && (
           <div
             style={{
               width: "100%",
@@ -355,42 +446,112 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 0: Brand name ── */}
+        {/* ── Screen 0: What are you building? ── */}
         {step === 0 && (
           <div key="s0" style={screenStyle}>
             <p style={labelStyle}>Art Protocol Studio</p>
-            <h1 style={questionStyle}>What's your brand name?</h1>
+            <h1 style={questionStyle}>What are you building?</h1>
             <p
               style={{
                 fontSize: 13,
                 color: "#a89880",
-                marginBottom: "1.75rem",
+                marginBottom: "2rem",
                 marginTop: "-0.5rem",
                 fontFamily: "Inter, system-ui, sans-serif",
               }}
             >
-              We'll build your Brand DNA around this.
+              This shapes everything — your Brand DNA, the questions, the outputs.
             </p>
-
-            <div style={{ width: "100%", maxWidth: 480 }}>
-              <input
-                ref={brandInputRef}
-                type="text"
-                value={brandName}
-                onChange={(e) => setBrandName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && brandName.trim()) advance();
-                }}
-                placeholder="e.g. Aura, Kira, Northseed..."
-                style={{ ...textInputStyle, fontSize: 17 }}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
-              />
-              <ContinueBtn
-                onClick={advance}
-                disabled={!brandName.trim()}
-                label="Start Building →"
-              />
+            <div style={{ width: "100%", maxWidth: 480, display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+              {[
+                {
+                  type: "brand",
+                  icon: "🏷️",
+                  title: "A Brand",
+                  desc: "You have a product, service, or business — physical, digital, or D2C.",
+                },
+                {
+                  type: "content",
+                  icon: "🎙️",
+                  title: "A Show or Channel",
+                  desc: "Podcast, talk show, YouTube channel, newsletter, or media brand.",
+                },
+                {
+                  type: "idea",
+                  icon: "💡",
+                  title: "An Idea",
+                  desc: "You're validating a concept — no name, no product yet.",
+                },
+              ].map((opt) => {
+                const isSelected = projectType === opt.type;
+                return (
+                  <div
+                    key={opt.type}
+                    onClick={() => {
+                      setProjectType(opt.type);
+                      setTimeout(advance, 90);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "1rem",
+                      background: isSelected ? "#faf8f4" : "#fff",
+                      border: `2px solid ${isSelected ? "#1c1812" : "#ece6dc"}`,
+                      borderRadius: 14,
+                      padding: "1.25rem 1.5rem",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "all 0.15s",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSelected)
+                        (e.currentTarget as HTMLDivElement).style.borderColor = "#d4a043";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSelected)
+                        (e.currentTarget as HTMLDivElement).style.borderColor = "#ece6dc";
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: "50%",
+                        background: "#f5f0e8",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 20,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {opt.icon}
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontSize: 15,
+                          fontWeight: 700,
+                          color: "#1c1812",
+                          fontFamily: "Inter, system-ui, sans-serif",
+                        }}
+                      >
+                        {opt.title}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "#a89880",
+                          marginTop: "0.2rem",
+                          fontFamily: "Inter, system-ui, sans-serif",
+                        }}
+                      >
+                        {opt.desc}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Recent projects */}
@@ -450,76 +611,124 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 1: Q1 — What do you sell? ── */}
+        {/* ── Screen 1: Name ── */}
         {step === 1 && (
           <div key="s1" style={screenStyle}>
-            <p style={labelStyle}>Question 1 of 9</p>
-            <h2 style={questionStyle}>What do you sell?</h2>
-            <div style={chipsWrap}>
-              {["Physical product", "Digital product", "Service", "Marketplace"].map(
-                (opt) => (
-                  <Chip
-                    key={opt}
-                    label={opt}
-                    selected={category === opt}
-                    onClick={() => chipSelectAndAdvance(setCategory, opt)}
-                  />
-                )
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── Screen 2: Q2 — What is it? ── */}
-        {step === 2 && (
-          <div key="s2" style={screenStyle}>
-            <p style={labelStyle}>Question 2 of 9</p>
-            <h2 style={questionStyle}>Describe what you're building</h2>
-            <p style={{ fontSize: 13, color: "#a89880", marginBottom: "1.25rem", marginTop: "-0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>
-              One or two sentences. What does it do and who is it for?
-            </p>
+            <p style={labelStyle}>Step 1 of 8</p>
+            <h2 style={questionStyle}>{nameHeadline[pt]}</h2>
+            {pt === "idea" && (
+              <p
+                style={{
+                  fontSize: 13,
+                  color: "#a89880",
+                  marginBottom: "1.25rem",
+                  marginTop: "-0.75rem",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                }}
+              >
+                Can be a placeholder — you can rename it later.
+              </p>
+            )}
             <div style={{ width: "100%", maxWidth: 480 }}>
-              <textarea
-                ref={whatIsItRef}
-                value={whatIsIt}
-                onChange={(e) => { if (e.target.value.length <= 300) setWhatIsIt(e.target.value); }}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey && whatIsIt.trim()) { e.preventDefault(); advance(); } }}
-                placeholder="e.g. A D2C skincare brand for Gen Z women who want effective, no-BS routines..."
-                rows={3}
-                style={{ width: "100%", background: "#fff", border: "2px solid #ece6dc", borderRadius: 14, padding: "1rem 1.25rem", fontSize: 14, color: "#1c1812", lineHeight: 1.7, resize: "none", outline: "none", fontFamily: "Inter, system-ui, sans-serif", boxSizing: "border-box", transition: "border-color 0.15s" }}
+              <input
+                ref={nameInputRef}
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && projectName.trim()) advance();
+                }}
+                placeholder={namePlaceholder[pt]}
+                style={{ ...textInputStyle, fontSize: 17 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
                 onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
               />
-              <div style={{ textAlign: "right", fontSize: 11, color: "#c8bfb2", marginTop: "0.35rem", fontFamily: "Inter, system-ui, sans-serif" }}>{whatIsIt.length}/300</div>
-              <ContinueBtn onClick={advance} disabled={!whatIsIt.trim()} />
+              <ContinueBtn
+                onClick={advance}
+                disabled={!projectName.trim()}
+                label="Continue →"
+              />
             </div>
           </div>
         )}
 
-        {/* ── Screen 3: Q3 — Who is it for? (multi-select) ── */}
+        {/* ── Screen 2: Category ── */}
+        {step === 2 && (
+          <div key="s2" style={screenStyle}>
+            <p style={labelStyle}>Step 2 of 8</p>
+            <h2 style={questionStyle}>{categoryHeadline[pt]}</h2>
+            <div style={chipsWrap}>
+              {(categoryOptions[pt] || []).map((opt) => (
+                <Chip
+                  key={opt}
+                  label={opt}
+                  selected={category === opt}
+                  onClick={() => chipSelectAndAdvance(setCategory, opt)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Screen 3: Description ── */}
         {step === 3 && (
           <div key="s3" style={screenStyle}>
-            <p style={labelStyle}>Question 3 of 9</p>
-            <h2 style={questionStyle}>Who is it for?</h2>
-            <p style={{ fontSize: 13, color: "#a89880", marginBottom: "1.25rem", marginTop: "-0.75rem", fontFamily: "Inter, system-ui, sans-serif" }}>
-              Select all that apply.
-            </p>
-            <div style={chipsWrap}>
-              {["Gen Z (18-25)", "Millennials (26-38)", "Working professionals", "B2B", "Parents", "Students", "Senior professionals"].map(
-                (opt) => (
-                  <Chip key={opt} label={opt} selected={audience.includes(opt)} onClick={() => toggleAudience(opt)} />
-                )
-              )}
+            <p style={labelStyle}>Step 3 of 8</p>
+            <h2 style={questionStyle}>{descHeadline[pt]}</h2>
+            <div style={{ width: "100%", maxWidth: 480 }}>
+              <textarea
+                ref={descRef}
+                value={description}
+                onChange={(e) => {
+                  if (e.target.value.length <= 300) setDescription(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && description.trim()) {
+                    e.preventDefault();
+                    advance();
+                  }
+                }}
+                placeholder={descPlaceholder[pt]}
+                rows={3}
+                style={{
+                  width: "100%",
+                  background: "#fff",
+                  border: "2px solid #ece6dc",
+                  borderRadius: 14,
+                  padding: "1rem 1.25rem",
+                  fontSize: 14,
+                  color: "#1c1812",
+                  lineHeight: 1.7,
+                  resize: "none",
+                  outline: "none",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                  boxSizing: "border-box",
+                  transition: "border-color 0.15s",
+                }}
+                onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
+                onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
+              />
+              <div
+                style={{
+                  textAlign: "right",
+                  fontSize: 11,
+                  color: "#c8bfb2",
+                  marginTop: "0.35rem",
+                  fontFamily: "Inter, system-ui, sans-serif",
+                }}
+              >
+                {description.length}/300
+              </div>
+              <ContinueBtn onClick={advance} disabled={!description.trim()} />
             </div>
-            {audience.length > 0 && <ContinueBtn onClick={advance} />}
           </div>
         )}
 
-        {/* ── Screen 4: Q4 — USP ── */}
+        {/* ── Screen 4: Audience ── */}
         {step === 4 && (
           <div key="s4" style={screenStyle}>
-            <p style={labelStyle}>Question 4 of 9</p>
-            <h2 style={questionStyle}>What makes it genuinely different?</h2>
+            <p style={labelStyle}>Step 4 of 8</p>
+            <h2 style={questionStyle}>Who is this for?</h2>
             <p
               style={{
                 fontSize: 13,
@@ -529,11 +738,41 @@ export default function OnboardingPage() {
                 fontFamily: "Inter, system-ui, sans-serif",
               }}
             >
-              Be specific. This becomes your USP across every output.
+              Select all that apply.
             </p>
+            <div style={chipsWrap}>
+              {[
+                "Founders & Entrepreneurs",
+                "Students",
+                "Working Professionals",
+                "Gen Z",
+                "Millennials",
+                "Parents",
+                "Creators & Influencers",
+                "B2B Teams",
+                "Global Audience",
+                "Niche Community",
+              ].map((opt) => (
+                <Chip
+                  key={opt}
+                  label={opt}
+                  selected={audience.includes(opt)}
+                  onClick={() => toggleAudience(opt)}
+                />
+              ))}
+            </div>
+            {audience.length > 0 && <ContinueBtn onClick={advance} />}
+          </div>
+        )}
+
+        {/* ── Screen 5: USP ── */}
+        {step === 5 && (
+          <div key="s5" style={screenStyle}>
+            <p style={labelStyle}>Step 5 of 8</p>
+            <h2 style={questionStyle}>{uspHeadline[pt]}</h2>
             <div style={{ width: "100%", maxWidth: 480 }}>
               <textarea
-                ref={uspInputRef}
+                ref={uspRef}
                 value={usp}
                 onChange={(e) => {
                   if (e.target.value.length <= 200) setUsp(e.target.value);
@@ -544,7 +783,7 @@ export default function OnboardingPage() {
                     advance();
                   }
                 }}
-                placeholder="Be specific. This becomes your USP across every output."
+                placeholder={uspPlaceholder[pt]}
                 rows={4}
                 style={{
                   width: "100%",
@@ -580,72 +819,29 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 5: Q5 — Journey stage ── */}
-        {step === 5 && (
-          <div key="s5" style={screenStyle}>
-            <p style={labelStyle}>Question 5 of 9</p>
-            <h2 style={questionStyle}>Where are you in the journey?</h2>
-            <div style={chipsWrap}>
-              {["Just an idea", "Pre-launch", "Early traction", "Scaling"].map((opt) => (
-                <Chip key={opt} label={opt} selected={stage === opt} onClick={() => chipSelectAndAdvance(setStage, opt)} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Screen 6: Q6 — Price point ── */}
+        {/* ── Screen 6: Stage ── */}
         {step === 6 && (
           <div key="s6" style={screenStyle}>
-            <p style={labelStyle}>Question 6 of 9</p>
-            <h2 style={questionStyle}>What is the price point?</h2>
+            <p style={labelStyle}>Step 6 of 8</p>
+            <h2 style={questionStyle}>Where are you right now?</h2>
             <div style={chipsWrap}>
-              {["Under ₹500", "₹500–₹2,000", "₹2,000–₹10,000", "₹10,000+"].map((opt) => (
-                <Chip key={opt} label={opt} selected={priceBand === opt} onClick={() => chipSelectAndAdvance(setPriceBand, opt)} />
+              {(stageOptions[pt] || []).map((opt) => (
+                <Chip
+                  key={opt}
+                  label={opt}
+                  selected={stage === opt}
+                  onClick={() => chipSelectAndAdvance(setStage, opt)}
+                />
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Screen 7: Q7 — Reference brand (optional) ── */}
+        {/* ── Screen 7: Channels ── */}
         {step === 7 && (
           <div key="s7" style={screenStyle}>
-            <p style={labelStyle}>Question 7 of 9</p>
-            <h2 style={questionStyle}>Name one brand whose work you respect</h2>
-            <p
-              style={{
-                fontSize: 13,
-                color: "#a89880",
-                marginBottom: "1.25rem",
-                marginTop: "-0.75rem",
-                fontFamily: "Inter, system-ui, sans-serif",
-              }}
-            >
-              Optional — helps calibrate tone and aesthetic.
-            </p>
-            <div style={{ width: "100%", maxWidth: 480 }}>
-              <input
-                ref={refBrandInputRef}
-                type="text"
-                value={refBrand}
-                onChange={(e) => setRefBrand(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") advance();
-                }}
-                placeholder="e.g. Apple, Zara, Notion, Aesop..."
-                style={textInputStyle}
-                onFocus={(e) => (e.currentTarget.style.borderColor = "#d4a043")}
-                onBlur={(e) => (e.currentTarget.style.borderColor = "#ece6dc")}
-              />
-              <ContinueBtn onClick={advance} />
-            </div>
-          </div>
-        )}
-
-        {/* ── Screen 8: Q8 — Channels (multi-select) ── */}
-        {step === 8 && (
-          <div key="s8" style={screenStyle}>
-            <p style={labelStyle}>Question 8 of 9</p>
-            <h2 style={questionStyle}>Which channels matter most?</h2>
+            <p style={labelStyle}>Step 7 of 8</p>
+            <h2 style={questionStyle}>{channelsHeadline[pt]}</h2>
             <p
               style={{
                 fontSize: 13,
@@ -658,32 +854,54 @@ export default function OnboardingPage() {
               Select all that apply.
             </p>
             <div style={chipsWrap}>
-              {["Instagram", "Reels", "Google Search", "Meta Ads", "LinkedIn", "Email", "D2C"].map(
-                (opt) => (
-                  <Chip
-                    key={opt}
-                    label={opt}
-                    selected={channels.includes(opt)}
-                    onClick={() => toggleChannel(opt)}
-                  />
-                )
-              )}
+              {[
+                "Instagram",
+                "YouTube",
+                "Reels / Short Video",
+                "Spotify / Podcasts",
+                "LinkedIn",
+                "Meta Ads",
+                "Google Search",
+                "X (Twitter)",
+                "Email / Newsletter",
+                "WhatsApp",
+                "D2C / Website",
+              ].map((opt) => (
+                <Chip
+                  key={opt}
+                  label={opt}
+                  selected={channels.includes(opt)}
+                  onClick={() => toggleChannel(opt)}
+                />
+              ))}
             </div>
             {channels.length > 0 && <ContinueBtn onClick={advance} />}
           </div>
         )}
 
-        {/* ── Screen 9: Q9 — Priority outcome ── */}
-        {step === 9 && (
-          <div key="s9" style={screenStyle}>
-            <p style={labelStyle}>Question 9 of 9</p>
-            <h2 style={questionStyle}>What outcome do you need most urgently?</h2>
+        {/* ── Screen 8: Priority outcome ── */}
+        {step === 8 && (
+          <div key="s8" style={screenStyle}>
+            <p style={labelStyle}>Step 8 of 8</p>
+            <h2 style={questionStyle}>What do you need most right now?</h2>
+            <p
+              style={{
+                fontSize: 13,
+                color: "#a89880",
+                marginBottom: "1.5rem",
+                marginTop: "-0.75rem",
+                fontFamily: "Inter, system-ui, sans-serif",
+              }}
+            >
+              We'll recommend where to start.
+            </p>
             <div style={chipsWrap}>
               {[
                 "Understand my market",
-                "Define the brand",
-                "Start getting customers",
-                "Build investor interest",
+                "Build the brand identity",
+                "Grow my audience",
+                "Set up ads",
+                "Create a pitch deck",
               ].map((opt) => (
                 <Chip
                   key={opt}
@@ -699,8 +917,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* ── Screen 10: Building Brand DNA ── */}
-        {step === 10 && (
+        {/* ── Screen 9: Building Brand DNA ── */}
+        {step === 9 && (
           <div
             key="s9"
             style={{
