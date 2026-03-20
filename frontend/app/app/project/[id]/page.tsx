@@ -508,7 +508,7 @@ function DeliverableViewer({ d, projectId, onClose }: { d: Deliverable; projectI
     setLoading(true);
     try {
       const res = await apiFetch<{ reply: string }>(`/me/projects/${projectId}/chat`, {
-        method: "POST", body: JSON.stringify({ message: msg, context: viewer?.path ?? "", history: msgs.map(m => ({ role: m.role, content: m.text })) }),
+        method: "POST", body: JSON.stringify({ message: msg, context: d.path ?? "", history: msgs.map(m => ({ role: m.role, content: m.text })) }),
       });
       setMsgs(p => [...p, { role: "assistant", text: res.reply }]);
     } catch (e: any) {
